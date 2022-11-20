@@ -1,5 +1,5 @@
 [package]
-name = "gorse"
+name = "gorse_rs"
 version = "0.4.0"
 edition = "2021"
 description = "Rust SDK for gorse recommender system"
@@ -7,7 +7,7 @@ readme = "README.md"
 homepage = "https://gorse.io"
 repository = "https://github.com/gorse-io/gorse-rs"
 license = "Apache-2.0"
-keywords = ["gorse", "machine-learning", "collaborative-filtering", "recommender-system"]
+keywords = ["gorse", "machine-learning", "recommender-system"]
 categories = ["algorithms", "science"]
 
 [dependencies]

@@ -8,13 +8,6 @@ use serde::{Deserialize, Serialize};
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
-#[derive(Debug, Clone)]
-pub struct Gorse {
-    entry_point: String,
-    api_key: String,
-    client: Client,
-}
-
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct User {
     #[serde(rename = "UserId")]
@@ -42,16 +35,27 @@ pub struct Item {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Feedback {
     #[serde(rename = "FeedbackType")]
-    feedback_type: String,
+    pub feedback_type: String,
     #[serde(rename = "UserId")]
-    user_id: String,
+    pub user_id: String,
     #[serde(rename = "ItemId")]
-    item_id: String,
+    pub item_id: String,
     #[serde(rename = "Timestamp")]
-    timestamp: String,
+    pub timestamp: String,
 }
 
-#[derive(Serialize, Deserialize)]
+impl Feedback {
+    pub fn new(feedback_type: impl Into<String>, user_id: impl Into<String>, item_id: impl Into<String>, timestamp: impl Into<String>) -> Self {
+        return Feedback {
+            feedback_type: feedback_type.into(),
+            user_id: user_id.into(),
+            item_id: item_id.into(),
+            timestamp: timestamp.into(),
+        };
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RowAffected {
     #[serde(rename = "RowAffected")]
     pub row_affected: i32,
@@ -65,7 +69,7 @@ pub struct Score {
     pub score: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Error {
     pub status_code: StatusCode,
     pub message: String,
@@ -83,6 +87,13 @@ impl error::Error for Error {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Gorse {
+    entry_point: String,
+    api_key: String,
+    client: Client,
+}
+
 impl Gorse {
     pub fn new(entry_point: impl Into<String>, api_key: impl Into<String>) -> Self {
         Self {
@@ -93,53 +104,51 @@ impl Gorse {
     }
 
     pub fn insert_user(&self, user: &User) -> Result<RowAffected> {
-        return self.request(Method::POST, format!("{}api/user", self.entry_point), Some(user));
+        return self.request(Method::POST, format!("{}api/user", self.entry_point), user);
     }
 
     pub fn get_user(&self, user_id: &str) -> Result<User> {
-        return self.request::<(), User>(Method::GET, format!("{}api/user/{}", self.entry_point, user_id), None);
+        return self.request::<(), User>(Method::GET, format!("{}api/user/{}", self.entry_point, user_id), &());
     }
 
     pub fn delete_user(&self, user_id: &str) -> Result<RowAffected> {
-        return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/user/{}", self.entry_point, user_id), None);
+        return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/user/{}", self.entry_point, user_id), &());
     }
 
     pub fn insert_item(&self, item: &Item) -> Result<RowAffected> {
-        return self.request(Method::POST, format!("{}api/item", self.entry_point), Some(item));
+        return self.request(Method::POST, format!("{}api/item", self.entry_point), item);
     }
 
     pub fn get_item(&self, item_id: &str) -> Result<Item> {
-        return self.request::<(), Item>(Method::GET, format!("{}api/item/{}", self.entry_point, item_id), None);
+        return self.request::<(), Item>(Method::GET, format!("{}api/item/{}", self.entry_point, item_id), &());
     }
 
     pub fn delete_item(&self, item_id: &str) -> Result<RowAffected> {
-        return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/item/{}", self.entry_point, item_id), None);
+        return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/item/{}", self.entry_point, item_id), &());
     }
 
     pub fn insert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
-        return self.request(Method::POST, format!("{}api/feedback", self.entry_point), Some(feedback));
+        return self.request(Method::POST, format!("{}api/feedback", self.entry_point), feedback);
     }
 
     pub fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
-        return self.request::<(), Vec<Feedback>>(Method::GET, format!("{}api/user/{}/feedback/{}", self.entry_point, user_id, feedback_type), None);
+        return self.request::<(), Vec<Feedback>>(Method::GET, format!("{}api/user/{}/feedback/{}", self.entry_point, user_id, feedback_type), &());
     }
 
     pub fn get_item_neighbors(&self, item_id: &str) -> Result<Vec<Score>> {
-        return self.request::<(), Vec<Score>>(Method::GET, format!("{}api/item/{}/neighbors", self.entry_point, item_id), None);
+        return self.request::<(), Vec<Score>>(Method::GET, format!("{}api/item/{}/neighbors", self.entry_point, item_id), &());
     }
 
     pub fn get_recommend(&self, user_id: &str) -> Result<Vec<String>> {
-        return self.request::<(), Vec<String>>(Method::GET, format!("{}api/recommend/{}", self.entry_point, user_id), None);
+        return self.request::<(), Vec<String>>(Method::GET, format!("{}api/recommend/{}", self.entry_point, user_id), &());
     }
 
-    fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(&self, method: Method, url: String, body: Option<&BodyType>) -> Result<RetType> {
-        let mut request = self.client.request(method, url)
+    fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(&self, method: Method, url: String, body: &BodyType) -> Result<RetType> {
+        let response = self.client.request(method, url)
             .header("X-API-Key", self.api_key.as_str())
-            .header("Content-Type", "application/json");
-        if let Some(b) = body {
-            request = request.json(b);
-        }
-        let response = request.send()?;
+            .header("Content-Type", "application/json")
+            .json(body)
+            .send()?;
         return if response.status() == StatusCode::OK {
             let r: RetType = serde_json::from_str(response.text()?.as_str())?;
             Ok(r)
@@ -152,6 +161,7 @@ impl Gorse {
 #[cfg(test)]
 mod tests {
     use redis::Commands;
+
     use super::{*};
 
     const ENTRY_POINT: &str = "http://127.0.0.1:8088/";
@@ -204,18 +214,8 @@ mod tests {
     fn test_feedback() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let feedback = vec![
-            Feedback {
-                feedback_type: "read".into(),
-                user_id: "100".into(),
-                item_id: "300".into(),
-                timestamp: "2022-11-20T13:55:27Z".into(),
-            },
-            Feedback {
-                feedback_type: "read".into(),
-                user_id: "100".into(),
-                item_id: "400".into(),
-                timestamp: "2022-11-20T13:55:27Z".into(),
-            },
+            Feedback::new("read", "100", "300", "2022-11-20T13:55:27Z"),
+            Feedback::new("read", "100", "400", "2022-11-20T13:55:27Z"),
         ];
         let rows_affected = client.insert_feedback(&feedback)?;
         assert_eq!(rows_affected.row_affected, 2);
@@ -233,9 +233,9 @@ mod tests {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let scores = client.get_item_neighbors("100")?;
         assert_eq!(scores, vec![
-            Score{id: "3".into(), score: 3.0},
-            Score{id: "2".into(), score: 2.0},
-            Score{id: "1".into(), score: 1.0},
+            Score { id: "3".into(), score: 3.0 },
+            Score { id: "2".into(), score: 2.0 },
+            Score { id: "1".into(), score: 1.0 },
         ]);
         Ok(())
     }
