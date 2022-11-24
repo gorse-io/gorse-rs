@@ -9,7 +9,7 @@ Rust SDK for gorse recommender system
 
 ```toml
 [dependencies]
-gorse_rs = "0.4.0"
+gorse_rs = "0.4.1"
 ```
 
 ## Usage
