@@ -28,9 +28,9 @@ let feedback = vec![
     Feedback::new("star", "bob", "mozilla:pdf.js", "2022-02-27"),
     Feedback::new("star", "bob", "moment:moment", "2022-02-28")
 ];
-client.insert_feedback(&feedback);
+client.insert_feedback(&feedback).await;
 
-client.get_recommend("100");
+client.get_recommend("100").await;
 ```
 
 - Use blocking client:
@@ -48,7 +48,7 @@ let feedback = vec![
     Feedback::new("star", "bob", "mozilla:pdf.js", "2022-02-27"),
     Feedback::new("star", "bob", "moment:moment", "2022-02-28")
 ];
-client.insert_feedback(&feedback).await;
+client.insert_feedback(&feedback);
 
-client.get_recommend("100").await;
+client.get_recommend("100");
 ```
