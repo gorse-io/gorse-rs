@@ -1,9 +1,12 @@
-use std::{error, fmt};
+pub mod query;
+
 use std::cmp::PartialEq;
 use std::fmt::{Display, Formatter};
+use std::{error, fmt};
 
-use reqwest::{Method, StatusCode};
+use query::{OffsetQuery, WriteBackQuery};
 use reqwest::Client;
+use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -14,6 +17,15 @@ pub struct User {
     pub user_id: String,
     #[serde(rename = "Labels")]
     pub labels: Vec<String>,
+}
+
+impl User {
+    pub fn new(user_id: impl Into<String>, labels: Vec<impl Into<String>>) -> Self {
+        User {
+            user_id: user_id.into(),
+            labels: labels.into_iter().map(|label| label.into()).collect(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -32,6 +44,37 @@ pub struct Item {
     pub comment: String,
 }
 
+impl Item {
+    pub fn new(
+        item_id: impl Into<String>,
+        labels: Vec<impl Into<String>>,
+        categories: Vec<impl Into<String>>,
+        timestamp: impl Into<String>,
+    ) -> Self {
+        Item {
+            item_id: item_id.into(),
+            is_hidden: false,
+            labels: labels.into_iter().map(|label| label.into()).collect(),
+            categories: categories
+                .into_iter()
+                .map(|category| category.into())
+                .collect(),
+            timestamp: timestamp.into(),
+            comment: String::new(),
+        }
+    }
+
+    pub fn is_hidden(mut self, is_hidden: bool) -> Self {
+        self.is_hidden = is_hidden;
+        self
+    }
+
+    pub fn comment(mut self, comment: impl Into<String>) -> Self {
+        self.comment = comment.into();
+        self
+    }
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Feedback {
     #[serde(rename = "FeedbackType")]
@@ -45,13 +88,18 @@ pub struct Feedback {
 }
 
 impl Feedback {
-    pub fn new(feedback_type: impl Into<String>, user_id: impl Into<String>, item_id: impl Into<String>, timestamp: impl Into<String>) -> Self {
-        return Feedback {
+    pub fn new(
+        feedback_type: impl Into<String>,
+        user_id: impl Into<String>,
+        item_id: impl Into<String>,
+        timestamp: impl Into<String>,
+    ) -> Self {
+        Feedback {
             feedback_type: feedback_type.into(),
             user_id: user_id.into(),
             item_id: item_id.into(),
             timestamp: timestamp.into(),
-        };
+        }
     }
 }
 
@@ -104,56 +152,140 @@ impl Gorse {
     }
 
     pub async fn insert_user(&self, user: &User) -> Result<RowAffected> {
-        return self.request(Method::POST, format!("{}api/user", self.entry_point), user).await;
+        return self
+            .request(Method::POST, format!("{}api/user", self.entry_point), user)
+            .await;
     }
 
     pub async fn get_user(&self, user_id: &str) -> Result<User> {
-        return self.request::<(), User>(Method::GET, format!("{}api/user/{}", self.entry_point, user_id), &()).await;
+        return self
+            .request::<(), User>(
+                Method::GET,
+                format!("{}api/user/{}", self.entry_point, user_id),
+                &(),
+            )
+            .await;
     }
 
     pub async fn delete_user(&self, user_id: &str) -> Result<RowAffected> {
-        return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/user/{}", self.entry_point, user_id), &()).await;
+        return self
+            .request::<(), RowAffected>(
+                Method::DELETE,
+                format!("{}api/user/{}", self.entry_point, user_id),
+                &(),
+            )
+            .await;
     }
 
     pub async fn insert_item(&self, item: &Item) -> Result<RowAffected> {
-        return self.request(Method::POST, format!("{}api/item", self.entry_point), item).await;
+        return self
+            .request(Method::POST, format!("{}api/item", self.entry_point), item)
+            .await;
     }
 
     pub async fn get_item(&self, item_id: &str) -> Result<Item> {
-        return self.request::<(), Item>(Method::GET, format!("{}api/item/{}", self.entry_point, item_id), &()).await;
+        return self
+            .request::<(), Item>(
+                Method::GET,
+                format!("{}api/item/{}", self.entry_point, item_id),
+                &(),
+            )
+            .await;
     }
 
     pub async fn delete_item(&self, item_id: &str) -> Result<RowAffected> {
-        return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/item/{}", self.entry_point, item_id), &()).await;
+        return self
+            .request::<(), RowAffected>(
+                Method::DELETE,
+                format!("{}api/item/{}", self.entry_point, item_id),
+                &(),
+            )
+            .await;
     }
 
     pub async fn insert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
-        return self.request(Method::POST, format!("{}api/feedback", self.entry_point), feedback).await;
+        return self
+            .request(
+                Method::POST,
+                format!("{}api/feedback", self.entry_point),
+                feedback,
+            )
+            .await;
     }
 
     pub async fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
-        return self.request::<(), Vec<Feedback>>(Method::GET, format!("{}api/user/{}/feedback/{}", self.entry_point, user_id, feedback_type), &()).await;
+        return self
+            .request::<(), Vec<Feedback>>(
+                Method::GET,
+                format!(
+                    "{}api/user/{}/feedback/{}",
+                    self.entry_point, user_id, feedback_type
+                ),
+                &(),
+            )
+            .await;
     }
 
-    pub async fn get_item_neighbors(&self, item_id: &str) -> Result<Vec<Score>> {
-        return self.request::<(), Vec<Score>>(Method::GET, format!("{}api/item/{}/neighbors", self.entry_point, item_id), &()).await;
+    pub async fn get_item_neighbors(
+        &self,
+        item_id: &str,
+        query: &OffsetQuery,
+    ) -> Result<Vec<Score>> {
+        return self
+            .request::<(), Vec<Score>>(
+                Method::GET,
+                format!(
+                    "{}api/item/{}/neighbors?{}",
+                    self.entry_point,
+                    item_id,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            )
+            .await;
     }
 
-    pub async fn get_recommend(&self, user_id: &str) -> Result<Vec<String>> {
-        return self.request::<(), Vec<String>>(Method::GET, format!("{}api/recommend/{}", self.entry_point, user_id), &()).await;
+    pub async fn get_recommend(
+        &self,
+        user_id: &str,
+        query: &WriteBackQuery,
+    ) -> Result<Vec<String>> {
+        return self
+            .request::<(), Vec<String>>(
+                Method::GET,
+                format!(
+                    "{}api/recommend/{}?{}",
+                    self.entry_point,
+                    user_id,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            )
+            .await;
     }
 
-    async fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(&self, method: Method, url: String, body: &BodyType) -> Result<RetType> {
-        let response = self.client.request(method, url)
+    async fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(
+        &self,
+        method: Method,
+        url: String,
+        body: &BodyType,
+    ) -> Result<RetType> {
+        let response = self
+            .client
+            .request(method, url)
             .header("X-API-Key", self.api_key.as_str())
             .header("Content-Type", "application/json")
             .json(body)
-            .send().await?;
+            .send()
+            .await?;
         return if response.status() == StatusCode::OK {
             let r: RetType = serde_json::from_str(response.text().await?.as_str())?;
             Ok(r)
         } else {
-            Err(Box::new(Error { status_code: response.status(), message: response.text().await? }))
+            Err(Box::new(Error {
+                status_code: response.status(),
+                message: response.text().await?,
+            }))
         };
     }
 }
@@ -162,7 +294,7 @@ impl Gorse {
 mod tests {
     use redis::Commands;
 
-    use super::{*};
+    use super::*;
 
     const ENTRY_POINT: &str = "http://127.0.0.1:8088/";
     const API_KEY: &str = "zhenghaoz";
@@ -170,7 +302,7 @@ mod tests {
     #[tokio::test]
     async fn test_users() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let user = User { user_id: "1".into(), labels: vec!["a".into(), "b".into(), "c".into()] };
+        let user = User::new("1", vec!["a", "b", "c"]);
         // Insert a user.
         let rows_affected = client.insert_user(&user).await?;
         assert_eq!(rows_affected.row_affected, 1);
@@ -188,14 +320,13 @@ mod tests {
     #[tokio::test]
     async fn test_items() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let item = Item {
-            item_id: "1".into(),
-            is_hidden: true,
-            labels: vec!["a".into(), "b".into(), "c".into()],
-            categories: vec!["d".into(), "e".into()],
-            timestamp: "2022-11-20T13:55:27Z".into(),
-            comment: "comment".into(),
-        };
+        let item = Item::new(
+            "1",
+            vec!["a", "b", "c"],
+            vec!["d", "e"],
+            "2022-11-20T13:55:27Z",
+        )
+        .comment("comment");
         // Insert an item.
         let rows_affected = client.insert_item(&item).await?;
         assert_eq!(rows_affected.row_affected, 1);
@@ -231,12 +362,24 @@ mod tests {
         let mut connection = redis.get_connection()?;
         connection.zadd_multiple("item_neighbors/10", &[(1, 10), (2, 20), (3, 30)])?;
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let scores = client.get_item_neighbors("10").await?;
-        assert_eq!(scores, vec![
-            Score { id: "30".into(), score: 3.0 },
-            Score { id: "20".into(), score: 2.0 },
-            Score { id: "10".into(), score: 1.0 },
-        ]);
+        let scores = client.get_item_neighbors("10", &OffsetQuery::new()).await?;
+        assert_eq!(
+            scores,
+            vec![
+                Score {
+                    id: "30".into(),
+                    score: 3.0
+                },
+                Score {
+                    id: "20".into(),
+                    score: 2.0
+                },
+                Score {
+                    id: "10".into(),
+                    score: 1.0
+                },
+            ]
+        );
         Ok(())
     }
 
@@ -246,8 +389,11 @@ mod tests {
         let mut connection = redis.get_connection()?;
         connection.zadd_multiple("offline_recommend/10", &[(1, 10), (2, 20), (3, 30)])?;
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let items = client.get_recommend("10").await?;
-        assert_eq!(items, vec!["30".to_string(), "20".to_string(), "10".to_string()]);
+        let items = client.get_recommend("10", &WriteBackQuery::new()).await?;
+        assert_eq!(
+            items,
+            vec!["30".to_string(), "20".to_string(), "10".to_string()]
+        );
         Ok(())
     }
 }
@@ -256,7 +402,10 @@ pub mod blocking {
     use reqwest::blocking::Client;
     use serde::{Deserialize, Serialize};
 
-    use crate::{Error, Feedback, Item, Method, Result, RowAffected, Score, StatusCode, User};
+    use crate::{
+        Error, Feedback, Item, Method, OffsetQuery, Result, RowAffected, Score, StatusCode, User,
+        WriteBackQuery,
+    };
 
     #[derive(Debug, Clone)]
     pub struct Gorse {
@@ -279,11 +428,19 @@ pub mod blocking {
         }
 
         pub fn get_user(&self, user_id: &str) -> Result<User> {
-            return self.request::<(), User>(Method::GET, format!("{}api/user/{}", self.entry_point, user_id), &());
+            return self.request::<(), User>(
+                Method::GET,
+                format!("{}api/user/{}", self.entry_point, user_id),
+                &(),
+            );
         }
 
         pub fn delete_user(&self, user_id: &str) -> Result<RowAffected> {
-            return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/user/{}", self.entry_point, user_id), &());
+            return self.request::<(), RowAffected>(
+                Method::DELETE,
+                format!("{}api/user/{}", self.entry_point, user_id),
+                &(),
+            );
         }
 
         pub fn insert_item(&self, item: &Item) -> Result<RowAffected> {
@@ -291,31 +448,75 @@ pub mod blocking {
         }
 
         pub fn get_item(&self, item_id: &str) -> Result<Item> {
-            return self.request::<(), Item>(Method::GET, format!("{}api/item/{}", self.entry_point, item_id), &());
+            return self.request::<(), Item>(
+                Method::GET,
+                format!("{}api/item/{}", self.entry_point, item_id),
+                &(),
+            );
         }
 
         pub fn delete_item(&self, item_id: &str) -> Result<RowAffected> {
-            return self.request::<(), RowAffected>(Method::DELETE, format!("{}api/item/{}", self.entry_point, item_id), &());
+            return self.request::<(), RowAffected>(
+                Method::DELETE,
+                format!("{}api/item/{}", self.entry_point, item_id),
+                &(),
+            );
         }
 
         pub fn insert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
-            return self.request(Method::POST, format!("{}api/feedback", self.entry_point), feedback);
+            return self.request(
+                Method::POST,
+                format!("{}api/feedback", self.entry_point),
+                feedback,
+            );
         }
 
         pub fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
-            return self.request::<(), Vec<Feedback>>(Method::GET, format!("{}api/user/{}/feedback/{}", self.entry_point, user_id, feedback_type), &());
+            return self.request::<(), Vec<Feedback>>(
+                Method::GET,
+                format!(
+                    "{}api/user/{}/feedback/{}",
+                    self.entry_point, user_id, feedback_type
+                ),
+                &(),
+            );
         }
 
-        pub fn get_item_neighbors(&self, item_id: &str) -> Result<Vec<Score>> {
-            return self.request::<(), Vec<Score>>(Method::GET, format!("{}api/item/{}/neighbors", self.entry_point, item_id), &());
+        pub fn get_item_neighbors(&self, item_id: &str, query: &OffsetQuery) -> Result<Vec<Score>> {
+            return self.request::<(), Vec<Score>>(
+                Method::GET,
+                format!(
+                    "{}api/item/{}/neighbors?{}",
+                    self.entry_point,
+                    item_id,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            );
         }
 
-        pub fn get_recommend(&self, user_id: &str) -> Result<Vec<String>> {
-            return self.request::<(), Vec<String>>(Method::GET, format!("{}api/recommend/{}", self.entry_point, user_id), &());
+        pub fn get_recommend(&self, user_id: &str, query: &WriteBackQuery) -> Result<Vec<String>> {
+            return self.request::<(), Vec<String>>(
+                Method::GET,
+                format!(
+                    "{}api/recommend/{}?{}",
+                    self.entry_point,
+                    user_id,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            );
         }
 
-        fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(&self, method: Method, url: String, body: &BodyType) -> Result<RetType> {
-            let response = self.client.request(method, url)
+        fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(
+            &self,
+            method: Method,
+            url: String,
+            body: &BodyType,
+        ) -> Result<RetType> {
+            let response = self
+                .client
+                .request(method, url)
                 .header("X-API-Key", self.api_key.as_str())
                 .header("Content-Type", "application/json")
                 .json(body)
@@ -324,7 +525,10 @@ pub mod blocking {
                 let r: RetType = serde_json::from_str(response.text()?.as_str())?;
                 Ok(r)
             } else {
-                Err(Box::new(Error { status_code: response.status(), message: response.text()? }))
+                Err(Box::new(Error {
+                    status_code: response.status(),
+                    message: response.text()?,
+                }))
             };
         }
     }
@@ -333,7 +537,7 @@ pub mod blocking {
     mod tests {
         use redis::Commands;
 
-        use super::{*};
+        use super::*;
 
         const ENTRY_POINT: &str = "http://127.0.0.1:8088/";
         const API_KEY: &str = "zhenghaoz";
@@ -341,7 +545,7 @@ pub mod blocking {
         #[test]
         fn test_users() -> Result<()> {
             let client = Gorse::new(ENTRY_POINT, API_KEY);
-            let user = User { user_id: "100".into(), labels: vec!["a".into(), "b".into(), "c".into()] };
+            let user = User::new("100", vec!["a", "b", "c"]);
             // Insert a user.
             let rows_affected = client.insert_user(&user)?;
             assert_eq!(rows_affected.row_affected, 1);
@@ -359,14 +563,13 @@ pub mod blocking {
         #[test]
         fn test_items() -> Result<()> {
             let client = Gorse::new(ENTRY_POINT, API_KEY);
-            let item = Item {
-                item_id: "100".into(),
-                is_hidden: true,
-                labels: vec!["a".into(), "b".into(), "c".into()],
-                categories: vec!["d".into(), "e".into()],
-                timestamp: "2022-11-20T13:55:27Z".into(),
-                comment: "comment".into(),
-            };
+            let item = Item::new(
+                "100",
+                vec!["a", "b", "c"],
+                vec!["d", "e"],
+                "2022-11-20T13:55:27Z",
+            )
+            .comment("comment");
             // Insert an item.
             let rows_affected = client.insert_item(&item)?;
             assert_eq!(rows_affected.row_affected, 1);
@@ -402,12 +605,24 @@ pub mod blocking {
             let mut connection = redis.get_connection()?;
             connection.zadd_multiple("item_neighbors/1000", &[(1, 1000), (2, 2000), (3, 3000)])?;
             let client = Gorse::new(ENTRY_POINT, API_KEY);
-            let scores = client.get_item_neighbors("1000")?;
-            assert_eq!(scores, vec![
-                Score { id: "3000".into(), score: 3.0 },
-                Score { id: "2000".into(), score: 2.0 },
-                Score { id: "1000".into(), score: 1.0 },
-            ]);
+            let scores = client.get_item_neighbors("1000", &OffsetQuery::new())?;
+            assert_eq!(
+                scores,
+                vec![
+                    Score {
+                        id: "3000".into(),
+                        score: 3.0
+                    },
+                    Score {
+                        id: "2000".into(),
+                        score: 2.0
+                    },
+                    Score {
+                        id: "1000".into(),
+                        score: 1.0
+                    },
+                ]
+            );
             Ok(())
         }
 
@@ -415,10 +630,14 @@ pub mod blocking {
         fn test_recommend() -> Result<()> {
             let redis = redis::Client::open("redis://127.0.0.1/")?;
             let mut connection = redis.get_connection()?;
-            connection.zadd_multiple("offline_recommend/1000", &[(1, 1000), (2, 2000), (3, 3000)])?;
+            connection
+                .zadd_multiple("offline_recommend/1000", &[(1, 1000), (2, 2000), (3, 3000)])?;
             let client = Gorse::new(ENTRY_POINT, API_KEY);
-            let items = client.get_recommend("1000")?;
-            assert_eq!(items, vec!["3000".to_string(), "2000".to_string(), "1000".to_string()]);
+            let items = client.get_recommend("1000", &WriteBackQuery::new())?;
+            assert_eq!(
+                items,
+                vec!["3000".to_string(), "2000".to_string(), "1000".to_string()]
+            );
             Ok(())
         }
     }
