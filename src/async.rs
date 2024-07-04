@@ -48,6 +48,16 @@ impl Gorse {
             .await;
     }
 
+    pub async fn update_user(&self, user: &User) -> Result<RowAffected> {
+        return self
+            .request(
+                Method::PATCH,
+                format!("{}api/user/{}", self.entry_point, user.user_id),
+                user,
+            )
+            .await;
+    }
+
     pub async fn insert_item(&self, item: &Item) -> Result<RowAffected> {
         return self
             .request(Method::POST, format!("{}api/item", self.entry_point), item)
@@ -173,9 +183,16 @@ mod tests {
     #[tokio::test]
     async fn test_users() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let user = User::new("1", vec!["a", "b", "c"]);
+        let mut user = User::new("1", vec!["a", "b", "c"]);
         // Insert a user.
         let rows_affected = client.insert_user(&user).await?;
+        assert_eq!(rows_affected.row_affected, 1);
+        // Get this user.
+        let return_user = client.get_user("1").await?;
+        assert_eq!(return_user, user);
+        // Update this user.
+        user.labels = vec!["e".into(), "f".into(), "g".into()];
+        let rows_affected = client.update_user(&user).await?;
         assert_eq!(rows_affected.row_affected, 1);
         // Get this user.
         let return_user = client.get_user("1").await?;

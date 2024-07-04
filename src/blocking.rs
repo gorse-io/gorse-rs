@@ -42,6 +42,14 @@ impl Gorse {
         );
     }
 
+    pub fn update_user(&self, user: &User) -> Result<RowAffected> {
+        return self.request(
+            Method::PATCH,
+            format!("{}api/user/{}", self.entry_point, user.user_id),
+            user,
+        );
+    }
+
     pub fn insert_item(&self, item: &Item) -> Result<RowAffected> {
         return self.request(Method::POST, format!("{}api/item", self.entry_point), item);
     }
@@ -144,9 +152,16 @@ mod tests {
     #[test]
     fn test_users() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let user = User::new("100", vec!["a", "b", "c"]);
+        let mut user = User::new("100", vec!["a", "b", "c"]);
         // Insert a user.
         let rows_affected = client.insert_user(&user)?;
+        assert_eq!(rows_affected.row_affected, 1);
+        // Get this user.
+        let return_user = client.get_user("100")?;
+        assert_eq!(return_user, user);
+        // Update this user.
+        user.labels = vec!["e".into(), "f".into(), "g".into()];
+        let rows_affected = client.update_user(&user)?;
         assert_eq!(rows_affected.row_affected, 1);
         // Get this user.
         let return_user = client.get_user("100")?;
