@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub(crate) struct Users {
+    #[serde(rename = "Users")]
+    users: Vec<User>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct User {
     #[serde(rename = "UserId")]
     pub user_id: String,

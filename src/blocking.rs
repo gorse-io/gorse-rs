@@ -2,8 +2,8 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    query::{OffsetQuery, WriteBackQuery},
-    Error, Feedback, Item, Method, Result, RowAffected, Score, StatusCode, User,
+    query::{CursorQuery, OffsetQuery, WriteBackQuery},
+    Error, Feedback, Item, Method, Result, RowAffected, Score, StatusCode, User, Users,
 };
 
 #[derive(Debug, Clone)]
@@ -47,6 +47,28 @@ impl Gorse {
             Method::PATCH,
             format!("{}api/user/{}", self.entry_point, user.user_id),
             user,
+        );
+    }
+
+    pub fn list_users(&self, query: &CursorQuery) -> Result<Vec<User>> {
+        return self
+            .request::<(), Users>(
+                Method::GET,
+                format!(
+                    "{}api/users?{}",
+                    self.entry_point,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            )
+            .map(|users| users.users);
+    }
+
+    pub fn insert_users(&self, users: &Vec<User>) -> Result<RowAffected> {
+        return self.request(
+            Method::POST,
+            format!("{}api/users", self.entry_point),
+            users,
         );
     }
 
@@ -171,6 +193,18 @@ mod tests {
         assert_eq!(rows_affected.row_affected, 1);
         let response = client.get_user("100");
         assert!(response.is_err());
+        // Insert a users.
+        let users = vec![user, User::new("101", vec!["a", "b", "c"])];
+        let rows_affected = client.insert_users(&users)?;
+        assert_eq!(rows_affected.row_affected, 2);
+        // Get this users.
+        let return_users = client.list_users(&CursorQuery::new())?;
+        assert!(!return_users.is_empty());
+        // Delete this users.
+        let rows_affected = client.delete_user("100")?;
+        assert_eq!(rows_affected.row_affected, 1);
+        let rows_affected = client.delete_user("101")?;
+        assert_eq!(rows_affected.row_affected, 1);
         Ok(())
     }
 
