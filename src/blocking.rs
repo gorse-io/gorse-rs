@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     query::{CursorQuery, OffsetQuery, WriteBackQuery},
-    Error, Feedback, Item, Items, Method, Result, RowAffected, Score, StatusCode, User, Users,
+    Error, Feedback, Health, Item, Items, Method, Result, RowAffected, Score, StatusCode, User,
+    Users,
 };
 
 #[derive(Debug, Clone)]
@@ -212,6 +213,22 @@ impl Gorse {
             }))
         };
     }
+
+    pub fn is_live(&self) -> Result<Health> {
+        return self.request(
+            Method::GET,
+            format!("{}api/health/live", self.entry_point),
+            &(),
+        );
+    }
+
+    pub fn is_ready(&self) -> Result<Health> {
+        return self.request(
+            Method::GET,
+            format!("{}api/health/ready", self.entry_point),
+            &(),
+        );
+    }
 }
 
 #[cfg(test)]
@@ -374,6 +391,23 @@ mod tests {
             items,
             vec!["3000".to_string(), "2000".to_string(), "1000".to_string()]
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_health() -> Result<()> {
+        let client = Gorse::new(ENTRY_POINT, API_KEY);
+        let health = Health {
+            cache_store_connected: true,
+            cache_store_error: None,
+            data_store_connected: true,
+            data_store_error: None,
+            ready: true,
+        };
+        let return_health = client.is_live()?;
+        assert_eq!(return_health, health);
+        let return_health = client.is_ready()?;
+        assert_eq!(return_health, health);
         Ok(())
     }
 }

@@ -117,6 +117,20 @@ impl Feedback {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Health {
+    #[serde(rename = "CacheStoreConnected")]
+    pub cache_store_connected: bool,
+    #[serde(rename = "CacheStoreError")]
+    pub cache_store_error: Option<String>,
+    #[serde(rename = "DataStoreConnected")]
+    pub data_store_connected: bool,
+    #[serde(rename = "DataStoreError")]
+    pub data_store_error: Option<String>,
+    #[serde(rename = "Ready")]
+    pub ready: bool,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RowAffected {
     #[serde(rename = "RowAffected")]
     pub row_affected: i32,
