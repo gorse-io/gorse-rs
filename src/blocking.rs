@@ -153,7 +153,11 @@ impl Gorse {
         );
     }
 
-    pub fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
+    pub fn list_feedback_from_user_by_type(
+        &self,
+        user_id: &str,
+        feedback_type: &str,
+    ) -> Result<Vec<Feedback>> {
         return self.request::<(), Vec<Feedback>>(
             Method::GET,
             format!(
@@ -345,10 +349,11 @@ mod tests {
             Feedback::new("read", "1000", "300", "2022-11-20T13:55:27Z"),
             Feedback::new("read", "1000", "400", "2022-11-20T13:55:27Z"),
         ];
+        // Insert feedback.
         let rows_affected = client.insert_feedback(&feedback)?;
         assert_eq!(rows_affected.row_affected, 2);
-        // Insert feedback.
-        let return_feedback = client.list_feedback("1000", "read")?;
+        // List feedback from user by type.
+        let return_feedback = client.list_feedback_from_user_by_type("1000", "read")?;
         assert_eq!(return_feedback, feedback);
         Ok(())
     }

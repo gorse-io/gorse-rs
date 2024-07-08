@@ -185,7 +185,11 @@ impl Gorse {
             .await;
     }
 
-    pub async fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
+    pub async fn list_feedback_from_user_by_type(
+        &self,
+        user_id: &str,
+        feedback_type: &str,
+    ) -> Result<Vec<Feedback>> {
         return self
             .request::<(), Vec<Feedback>>(
                 Method::GET,
@@ -400,10 +404,11 @@ mod tests {
             Feedback::new("read", "10", "3", "2022-11-20T13:55:27Z"),
             Feedback::new("read", "10", "4", "2022-11-20T13:55:27Z"),
         ];
+        // Insert feedback.
         let rows_affected = client.insert_feedback(&feedback).await?;
         assert_eq!(rows_affected.row_affected, 2);
-        // Insert feedback.
-        let return_feedback = client.list_feedback("10", "read").await?;
+        // List feedback from user by type.
+        let return_feedback = client.list_feedback_from_user_by_type("10", "read").await?;
         assert_eq!(return_feedback, feedback);
         Ok(())
     }
