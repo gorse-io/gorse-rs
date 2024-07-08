@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     query::{CursorQuery, OffsetQuery, WriteBackQuery},
-    Error, Feedback, Item, Method, Result, RowAffected, Score, StatusCode, User, Users,
+    Error, Feedback, Item, Items, Method, Result, RowAffected, Score, StatusCode, User, Users,
 };
 
 #[derive(Debug, Clone)]
@@ -89,6 +89,58 @@ impl Gorse {
             Method::DELETE,
             format!("{}api/item/{}", self.entry_point, item_id),
             &(),
+        );
+    }
+
+    pub fn update_item(&self, item: &Item) -> Result<RowAffected> {
+        return self.request(
+            Method::PATCH,
+            format!("{}api/item/{}", self.entry_point, item.item_id),
+            item,
+        );
+    }
+
+    pub fn add_item_to_category(&self, item_id: &str, category: &str) -> Result<RowAffected> {
+        return self.request(
+            Method::PUT,
+            format!(
+                "{}api/item/{}/category/{}",
+                self.entry_point, item_id, category
+            ),
+            &(),
+        );
+    }
+
+    pub fn delete_item_to_category(&self, item_id: &str, category: &str) -> Result<RowAffected> {
+        return self.request(
+            Method::DELETE,
+            format!(
+                "{}api/item/{}/category/{}",
+                self.entry_point, item_id, category
+            ),
+            &(),
+        );
+    }
+
+    pub fn list_items(&self, query: &CursorQuery) -> Result<Vec<Item>> {
+        return self
+            .request::<(), Items>(
+                Method::GET,
+                format!(
+                    "{}api/items?{}",
+                    self.entry_point,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            )
+            .map(|items| items.items);
+    }
+
+    pub fn insert_items(&self, items: &Vec<Item>) -> Result<RowAffected> {
+        return self.request(
+            Method::POST,
+            format!("{}api/items", self.entry_point),
+            items,
         );
     }
 
@@ -194,7 +246,7 @@ mod tests {
         let response = client.get_user("100");
         assert!(response.is_err());
         // Insert a users.
-        let users = vec![user, User::new("101", vec!["a", "b", "c"])];
+        let users = vec![user, User::new("102", vec!["a", "b", "c"])];
         let rows_affected = client.insert_users(&users)?;
         assert_eq!(rows_affected.row_affected, 2);
         // Get this users.
@@ -203,7 +255,7 @@ mod tests {
         // Delete this users.
         let rows_affected = client.delete_user("100")?;
         assert_eq!(rows_affected.row_affected, 1);
-        let rows_affected = client.delete_user("101")?;
+        let rows_affected = client.delete_user("102")?;
         assert_eq!(rows_affected.row_affected, 1);
         Ok(())
     }
@@ -211,6 +263,7 @@ mod tests {
     #[test]
     fn test_items() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
+        let category = "test".to_string();
         let item = Item::new(
             "100",
             vec!["a", "b", "c"],
@@ -218,8 +271,24 @@ mod tests {
             "2022-11-20T13:55:27Z",
         )
         .comment("comment");
+        let item_with_category = Item::new(
+            "100",
+            vec!["a", "b", "c"],
+            vec!["d", "e", &category],
+            "2022-11-20T13:55:27Z",
+        )
+        .comment("comment");
         // Insert an item.
         let rows_affected = client.insert_item(&item)?;
+        assert_eq!(rows_affected.row_affected, 1);
+        // Add category to item.
+        let rows_affected = client.add_item_to_category(&item.item_id, &category)?;
+        assert_eq!(rows_affected.row_affected, 1);
+        // Get this item.
+        let return_item = client.get_item("100")?;
+        assert_eq!(return_item, item_with_category);
+        // Delete category to item.
+        let rows_affected = client.delete_item_to_category(&item.item_id, &category)?;
         assert_eq!(rows_affected.row_affected, 1);
         // Get this item.
         let return_item = client.get_item("100")?;
@@ -229,6 +298,26 @@ mod tests {
         assert_eq!(rows_affected.row_affected, 1);
         let response = client.get_item("100");
         assert!(response.is_err());
+        // Insert a items.
+        let items = vec![
+            item,
+            Item::new(
+                "102",
+                vec!["d", "e"],
+                vec!["a", "b", "c"],
+                "2023-11-20T13:55:27Z",
+            ),
+        ];
+        let rows_affected = client.insert_items(&items)?;
+        assert_eq!(rows_affected.row_affected, 2);
+        // Get this items.
+        let return_items = client.list_items(&CursorQuery::new())?;
+        assert!(!return_items.is_empty());
+        // Delete this items.
+        let rows_affected = client.delete_item("100")?;
+        assert_eq!(rows_affected.row_affected, 1);
+        let rows_affected = client.delete_item("102")?;
+        assert_eq!(rows_affected.row_affected, 1);
         Ok(())
     }
 

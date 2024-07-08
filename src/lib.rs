@@ -36,6 +36,12 @@ impl User {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub(crate) struct Items {
+    #[serde(rename = "Items")]
+    items: Vec<Item>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Item {
     #[serde(rename = "ItemId")]
     pub item_id: String,
