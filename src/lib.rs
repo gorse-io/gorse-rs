@@ -12,13 +12,13 @@ use serde::{Deserialize, Serialize};
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub(crate) struct Users {
     #[serde(rename = "Users")]
     users: Vec<User>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct User {
     #[serde(rename = "UserId")]
     pub user_id: String,
@@ -35,13 +35,13 @@ impl User {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub(crate) struct Items {
     #[serde(rename = "Items")]
     items: Vec<Item>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Item {
     #[serde(rename = "ItemId")]
     pub item_id: String,
@@ -88,7 +88,13 @@ impl Item {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub(crate) struct Feedbacks {
+    #[serde(rename = "Feedback")]
+    feedbacks: Vec<Feedback>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Feedback {
     #[serde(rename = "FeedbackType")]
     pub feedback_type: String,
@@ -116,7 +122,7 @@ impl Feedback {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Health {
     #[serde(rename = "CacheStoreConnected")]
     pub cache_store_connected: bool,
@@ -130,13 +136,13 @@ pub struct Health {
     pub ready: bool,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct RowAffected {
     #[serde(rename = "RowAffected")]
     pub row_affected: i32,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Score {
     #[serde(rename = "Id")]
     pub id: String,

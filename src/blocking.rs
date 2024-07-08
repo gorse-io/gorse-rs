@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     query::{CursorQuery, OffsetQuery, WriteBackQuery},
-    Error, Feedback, Health, Item, Items, Method, Result, RowAffected, Score, StatusCode, User,
-    Users,
+    Error, Feedback, Feedbacks, Health, Item, Items, Method, Result, RowAffected, Score,
+    StatusCode, User, Users,
 };
 
 #[derive(Debug, Clone)]
@@ -142,6 +142,28 @@ impl Gorse {
             Method::POST,
             format!("{}api/items", self.entry_point),
             items,
+        );
+    }
+
+    pub fn list_feedback(&self, query: &CursorQuery) -> Result<Vec<Feedback>> {
+        return self
+            .request::<(), Feedbacks>(
+                Method::GET,
+                format!(
+                    "{}api/feedback?{}",
+                    self.entry_point,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            )
+            .map(|feedbacks| feedbacks.feedbacks);
+    }
+
+    pub fn overwrite_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
+        return self.request(
+            Method::PUT,
+            format!("{}api/feedback", self.entry_point),
+            feedback,
         );
     }
 
@@ -345,6 +367,12 @@ mod tests {
     #[test]
     fn test_feedback() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
+        let all_feedback = vec![
+            Feedback::new("read", "10", "3", "2022-11-20T13:55:27Z"),
+            Feedback::new("read", "10", "4", "2022-11-20T13:55:27Z"),
+            Feedback::new("read", "1000", "300", "2022-11-20T13:55:27Z"),
+            Feedback::new("read", "1000", "400", "2022-11-20T13:55:27Z"),
+        ];
         let feedback = vec![
             Feedback::new("read", "1000", "300", "2022-11-20T13:55:27Z"),
             Feedback::new("read", "1000", "400", "2022-11-20T13:55:27Z"),
@@ -352,6 +380,12 @@ mod tests {
         // Insert feedback.
         let rows_affected = client.insert_feedback(&feedback)?;
         assert_eq!(rows_affected.row_affected, 2);
+        // Overwrite feedback.
+        let rows_affected = client.overwrite_feedback(&feedback)?;
+        assert_eq!(rows_affected.row_affected, 2);
+        // List feedback.
+        let return_feedback = client.list_feedback(&CursorQuery::new())?;
+        assert_eq!(return_feedback, all_feedback);
         // List feedback from user by type.
         let return_feedback = client.list_feedback_from_user_by_type("1000", "read")?;
         assert_eq!(return_feedback, feedback);
