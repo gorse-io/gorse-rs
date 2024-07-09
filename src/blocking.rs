@@ -175,6 +175,41 @@ impl Gorse {
         );
     }
 
+    pub fn list_feedback_by_type(
+        &self,
+        feedback_type: &str,
+        query: &CursorQuery,
+    ) -> Result<Vec<Feedback>> {
+        return self
+            .request::<(), Feedbacks>(
+                Method::GET,
+                format!(
+                    "{}api/feedback/{}?{}",
+                    self.entry_point,
+                    feedback_type,
+                    serde_url_params::to_string(query).unwrap()
+                ),
+                &(),
+            )
+            .map(|feedbacks| feedbacks.feedbacks);
+    }
+
+    pub fn get_feedback(
+        &self,
+        feedback_type: &str,
+        user_id: &str,
+        item_id: &str,
+    ) -> Result<Feedback> {
+        return self.request::<(), Feedback>(
+            Method::GET,
+            format!(
+                "{}api/feedback/{}/{}/{}",
+                self.entry_point, feedback_type, user_id, item_id,
+            ),
+            &(),
+        );
+    }
+
     pub fn list_feedback_from_user_by_type(
         &self,
         user_id: &str,
@@ -386,6 +421,12 @@ mod tests {
         // List feedback.
         let return_feedback = client.list_feedback(&CursorQuery::new())?;
         assert_eq!(return_feedback, all_feedback);
+        // List feedback by type.
+        let return_feedback = client.list_feedback_by_type("read", &CursorQuery::new())?;
+        assert_eq!(return_feedback, all_feedback);
+        // Get feedback.
+        let return_feedback = client.get_feedback("read", "1000", "300")?;
+        assert_eq!(return_feedback, feedback[0]);
         // List feedback from user by type.
         let return_feedback = client.list_feedback_from_user_by_type("1000", "read")?;
         assert_eq!(return_feedback, feedback);
