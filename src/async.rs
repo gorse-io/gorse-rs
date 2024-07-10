@@ -266,6 +266,20 @@ impl Gorse {
             .await;
     }
 
+    pub async fn list_feedback_from_user_by_item(
+        &self,
+        user_id: &str,
+        item_id: &str,
+    ) -> Result<Vec<Feedback>> {
+        return self
+            .request::<(), Vec<Feedback>>(
+                Method::GET,
+                format!("{}api/feedback/{}/{}", self.entry_point, user_id, item_id),
+                &(),
+            )
+            .await;
+    }
+
     pub async fn list_feedback_from_user_by_type(
         &self,
         user_id: &str,
@@ -514,6 +528,9 @@ mod tests {
         // Get feedback.
         let return_feedback = client.get_feedback("read", "10", "3").await?;
         assert_eq!(return_feedback, feedback[0]);
+        // List feedback from user by item.
+        let return_feedback = client.list_feedback_from_user_by_item("10", "3").await?;
+        assert_eq!(return_feedback, feedback[0..1]);
         // List feedback from user by type.
         let return_feedback = client.list_feedback_from_user_by_type("10", "read").await?;
         assert_eq!(return_feedback, feedback[..2]);
