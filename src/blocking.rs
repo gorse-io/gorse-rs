@@ -210,6 +210,22 @@ impl Gorse {
         );
     }
 
+    pub fn delete_feedback(
+        &self,
+        feedback_type: &str,
+        user_id: &str,
+        item_id: &str,
+    ) -> Result<RowAffected> {
+        return self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!(
+                "{}api/feedback/{}/{}/{}",
+                self.entry_point, feedback_type, user_id, item_id,
+            ),
+            &(),
+        );
+    }
+
     pub fn list_feedback_from_user_by_type(
         &self,
         user_id: &str,
@@ -411,13 +427,19 @@ mod tests {
         let feedback = vec![
             Feedback::new("read", "1000", "300", "2022-11-20T13:55:27Z"),
             Feedback::new("read", "1000", "400", "2022-11-20T13:55:27Z"),
+            Feedback::new("star", "1000", "300", "2022-11-20T13:55:27Z"),
         ];
         // Insert feedback.
         let rows_affected = client.insert_feedback(&feedback)?;
-        assert_eq!(rows_affected.row_affected, 2);
+        assert_eq!(rows_affected.row_affected, 3);
         // Overwrite feedback.
         let rows_affected = client.overwrite_feedback(&feedback)?;
-        assert_eq!(rows_affected.row_affected, 2);
+        assert_eq!(rows_affected.row_affected, 3);
+        // Delete feedback.
+        let rows_affected = client.delete_feedback("star", "1000", "300")?;
+        assert_eq!(rows_affected.row_affected, 1);
+        let response = client.get_feedback("star", "1000", "300");
+        assert!(response.is_err());
         // List feedback.
         let return_feedback = client.list_feedback(&CursorQuery::new())?;
         assert_eq!(return_feedback, all_feedback);
@@ -429,7 +451,7 @@ mod tests {
         assert_eq!(return_feedback, feedback[0]);
         // List feedback from user by type.
         let return_feedback = client.list_feedback_from_user_by_type("1000", "read")?;
-        assert_eq!(return_feedback, feedback);
+        assert_eq!(return_feedback, feedback[..2]);
         Ok(())
     }
 
