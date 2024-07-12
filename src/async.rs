@@ -648,6 +648,7 @@ mod tests {
         let mut connection = redis.get_connection()?;
         connection.zadd_multiple("user_neighbors/10", &[(1, 10), (2, 20), (3, 30)])?;
         connection.zadd_multiple("item_neighbors/10", &[(1, 10), (2, 20), (3, 30)])?;
+        connection.zadd_multiple("item_neighbors/10/test", &[(1, 10), (2, 20), (3, 30)])?;
         let scores = vec![
             Score {
                 id: "30".into(),
@@ -668,7 +669,7 @@ mod tests {
         assert_eq!(returned_scores, scores);
         // Get item neighbors by category.
         let returned_scores = client
-            .get_item_neighbors_by_category("10", "", &OffsetQuery::new())
+            .get_item_neighbors_by_category("10", "test", &OffsetQuery::new())
             .await?;
         assert_eq!(returned_scores, scores);
         // Get user neighbors.
