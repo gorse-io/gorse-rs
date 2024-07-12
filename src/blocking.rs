@@ -238,6 +238,49 @@ impl Gorse {
         );
     }
 
+    pub fn delete_feedback_from_user_by_item(
+        &self,
+        user_id: &str,
+        item_id: &str,
+    ) -> Result<RowAffected> {
+        return self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!("{}api/feedback/{}/{}", self.entry_point, user_id, item_id),
+            &(),
+        );
+    }
+
+    pub fn list_feedback_by_item(&self, item_id: &str) -> Result<Vec<Feedback>> {
+        return self.request::<(), Vec<Feedback>>(
+            Method::GET,
+            format!("{}api/item/{}/feedback", self.entry_point, item_id),
+            &(),
+        );
+    }
+
+    pub fn list_feedback_by_item_and_type(
+        &self,
+        item_id: &str,
+        feedback_type: &str,
+    ) -> Result<Vec<Feedback>> {
+        return self.request::<(), Vec<Feedback>>(
+            Method::GET,
+            format!(
+                "{}api/item/{}/feedback/{}",
+                self.entry_point, item_id, feedback_type
+            ),
+            &(),
+        );
+    }
+
+    pub fn list_feedback_from_user(&self, user_id: &str) -> Result<Vec<Feedback>> {
+        return self.request::<(), Vec<Feedback>>(
+            Method::GET,
+            format!("{}api/user/{}/feedback", self.entry_point, user_id),
+            &(),
+        );
+    }
+
     pub fn list_feedback_from_user_by_type(
         &self,
         user_id: &str,
@@ -440,18 +483,23 @@ mod tests {
             Feedback::new("read", "1000", "300", "2022-11-20T13:55:27Z"),
             Feedback::new("read", "1000", "400", "2022-11-20T13:55:27Z"),
             Feedback::new("star", "1000", "300", "2022-11-20T13:55:27Z"),
+            Feedback::new("read", "1000", "500", "2022-11-20T13:55:27Z"),
+            Feedback::new("star", "1000", "500", "2022-11-20T13:55:27Z"),
         ];
         // Insert feedback.
         let rows_affected = client.insert_feedback(&feedback)?;
-        assert_eq!(rows_affected.row_affected, 3);
+        assert_eq!(rows_affected.row_affected, 5);
         // Overwrite feedback.
         let rows_affected = client.overwrite_feedback(&feedback)?;
-        assert_eq!(rows_affected.row_affected, 3);
+        assert_eq!(rows_affected.row_affected, 5);
         // Delete feedback.
         let rows_affected = client.delete_feedback("star", "1000", "300")?;
         assert_eq!(rows_affected.row_affected, 1);
         let response = client.get_feedback("star", "1000", "300");
         assert!(response.is_err());
+        // Delete feedback from user by item.
+        let rows_affected = client.delete_feedback_from_user_by_item("1000", "500")?;
+        assert_eq!(rows_affected.row_affected, 2);
         // List feedback.
         let return_feedback = client.list_feedback(&CursorQuery::new())?;
         assert_eq!(return_feedback, all_feedback);
@@ -461,9 +509,18 @@ mod tests {
         // Get feedback.
         let return_feedback = client.get_feedback("read", "1000", "300")?;
         assert_eq!(return_feedback, feedback[0]);
+        // List feedback by item.
+        let return_feedback = client.list_feedback_by_item("300")?;
+        assert_eq!(return_feedback, feedback[..1]);
+        // List feedback by item and type.
+        let return_feedback = client.list_feedback_by_item_and_type("300", "read")?;
+        assert_eq!(return_feedback, feedback[..1]);
+        // List feedback by item and type.
+        let return_feedback = client.list_feedback_from_user("1000")?;
+        assert_eq!(return_feedback, feedback[..2]);
         // List feedback from user by item.
         let return_feedback = client.list_feedback_from_user_by_item("1000", "300")?;
-        assert_eq!(return_feedback, feedback[0..1]);
+        assert_eq!(return_feedback, feedback[..1]);
         // List feedback from user by type.
         let return_feedback = client.list_feedback_from_user_by_type("1000", "read")?;
         assert_eq!(return_feedback, feedback[..2]);
