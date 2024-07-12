@@ -563,6 +563,9 @@ mod tests {
     fn test_neighbors() -> Result<()> {
         let redis = redis::Client::open("redis://127.0.0.1/")?;
         let mut connection = redis.get_connection()?;
+        connection.del("user_neighbors/1000")?;
+        connection.del("item_neighbors/1000")?;
+        connection.del("item_neighbors/1000/test")?;
         connection.zadd_multiple("user_neighbors/1000", &[(1, 1000), (2, 2000), (3, 3000)])?;
         connection.zadd_multiple("item_neighbors/1000", &[(1, 1000), (2, 2000), (3, 3000)])?;
         connection.zadd_multiple(
