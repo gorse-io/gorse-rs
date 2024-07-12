@@ -418,6 +418,44 @@ impl Gorse {
         );
     }
 
+    pub fn get_recommend_session(
+        &self,
+        feedbacks: &Vec<Feedback>,
+        query: &OffsetQuery,
+    ) -> Result<Vec<Score>> {
+        return self
+            .request::<Vec<Feedback>, Option<Vec<Score>>>(
+                Method::POST,
+                format!(
+                    "{}api/session/recommend?{}",
+                    self.entry_point,
+                    serde_url_params::to_string(query)?
+                ),
+                feedbacks,
+            )
+            .map(|scores| scores.unwrap_or_default());
+    }
+
+    pub fn get_recommend_session_by_category(
+        &self,
+        feedbacks: &Vec<Feedback>,
+        category: &str,
+        query: &OffsetQuery,
+    ) -> Result<Vec<Score>> {
+        return self
+            .request::<Vec<Feedback>, Option<Vec<Score>>>(
+                Method::POST,
+                format!(
+                    "{}api/session/recommend/{}?{}",
+                    self.entry_point,
+                    category,
+                    serde_url_params::to_string(query)?
+                ),
+                feedbacks,
+            )
+            .map(|scores| scores.unwrap_or_default());
+    }
+
     pub fn get_user_neighbors(&self, user_id: &str, query: &OffsetQuery) -> Result<Vec<Score>> {
         return self.request::<(), Vec<Score>>(
             Method::GET,
@@ -761,6 +799,40 @@ mod tests {
         let returned_items =
             client.get_recommend_by_category("1000", "test", &WriteBackQuery::new())?;
         assert_eq!(returned_items, items);
+        Ok(())
+    }
+
+    #[test]
+    fn test_recommend_session() -> Result<()> {
+        let client = Gorse::new(ENTRY_POINT, API_KEY);
+        let items = vec![Item::new(
+            "1009",
+            vec!["a", "b", "c"],
+            vec!["d", "e"],
+            "2022-11-20T13:55:27Z",
+        )];
+        let feedbacks = vec![Feedback::new(
+            "read",
+            "1000",
+            "1009",
+            "2022-11-21T13:55:27Z",
+        )];
+        // Insert an item.
+        let rows_affected = client.insert_items(&items)?;
+        assert_eq!(rows_affected.row_affected, 1);
+        // Get recommendation.
+        let returned_scores = client.get_recommend_session(&feedbacks, &OffsetQuery::new())?;
+        assert!(returned_scores.is_empty());
+        // Get recommendation by category.
+        let returned_scores =
+            client.get_recommend_session_by_category(&feedbacks, "test", &OffsetQuery::new())?;
+        assert!(returned_scores.is_empty());
+        // Delete a feedback.
+        let rows_affected = client.delete_feedback("read", "1000", "1009")?;
+        assert_eq!(rows_affected.row_affected, 0);
+        // Delete an item.
+        let rows_affected = client.delete_item("1009")?;
+        assert_eq!(rows_affected.row_affected, 1);
         Ok(())
     }
 

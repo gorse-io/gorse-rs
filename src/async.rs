@@ -494,6 +494,46 @@ impl Gorse {
             .await;
     }
 
+    pub async fn get_recommend_session(
+        &self,
+        feedbacks: &Vec<Feedback>,
+        query: &OffsetQuery,
+    ) -> Result<Vec<Score>> {
+        return self
+            .request::<Vec<Feedback>, Option<Vec<Score>>>(
+                Method::POST,
+                format!(
+                    "{}api/session/recommend?{}",
+                    self.entry_point,
+                    serde_url_params::to_string(query)?
+                ),
+                feedbacks,
+            )
+            .await
+            .map(|scores| scores.unwrap_or_default());
+    }
+
+    pub async fn get_recommend_session_by_category(
+        &self,
+        feedbacks: &Vec<Feedback>,
+        category: &str,
+        query: &OffsetQuery,
+    ) -> Result<Vec<Score>> {
+        return self
+            .request::<Vec<Feedback>, Option<Vec<Score>>>(
+                Method::POST,
+                format!(
+                    "{}api/session/recommend/{}?{}",
+                    self.entry_point,
+                    category,
+                    serde_url_params::to_string(query)?
+                ),
+                feedbacks,
+            )
+            .await
+            .map(|scores| scores.unwrap_or_default());
+    }
+
     pub async fn get_user_neighbors(
         &self,
         user_id: &str,
@@ -854,6 +894,38 @@ mod tests {
             .get_recommend_by_category("10", "test", &WriteBackQuery::new())
             .await?;
         assert_eq!(returned_items, items);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_recommend_session() -> Result<()> {
+        let client = Gorse::new(ENTRY_POINT, API_KEY);
+        let items = vec![Item::new(
+            "9",
+            vec!["a", "b", "c"],
+            vec!["d", "e"],
+            "2022-11-20T13:55:27Z",
+        )];
+        let feedbacks = vec![Feedback::new("read", "10", "9", "2022-11-21T13:55:27Z")];
+        // Insert an item.
+        let rows_affected = client.insert_items(&items).await?;
+        assert_eq!(rows_affected.row_affected, 1);
+        // Get recommendation.
+        let returned_scores = client
+            .get_recommend_session(&feedbacks, &OffsetQuery::new())
+            .await?;
+        assert!(returned_scores.is_empty());
+        // Get recommendation by category.
+        let returned_scores = client
+            .get_recommend_session_by_category(&feedbacks, "test", &OffsetQuery::new())
+            .await?;
+        assert!(returned_scores.is_empty());
+        // Delete a feedback.
+        let rows_affected = client.delete_feedback("read", "10", "9").await?;
+        assert_eq!(rows_affected.row_affected, 0);
+        // Delete an item.
+        let rows_affected = client.delete_item("9").await?;
+        assert_eq!(rows_affected.row_affected, 1);
         Ok(())
     }
 
