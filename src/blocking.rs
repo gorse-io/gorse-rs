@@ -515,7 +515,7 @@ mod tests {
         // List feedback by item and type.
         let return_feedback = client.list_feedback_by_item_and_type("300", "read")?;
         assert_eq!(return_feedback, feedback[..1]);
-        // List feedback by item and type.
+        // List feedback from user.
         let return_feedback = client.list_feedback_from_user("1000")?;
         assert_eq!(return_feedback, feedback[..2]);
         // List feedback from user by item.
