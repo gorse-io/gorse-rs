@@ -309,11 +309,43 @@ impl Gorse {
         );
     }
 
+    pub fn get_item_neighbors_by_category(
+        &self,
+        item_id: &str,
+        category: &str,
+        query: &OffsetQuery,
+    ) -> Result<Vec<Score>> {
+        return self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!(
+                "{}api/item/{}/neighbors/{}?{}",
+                self.entry_point,
+                item_id,
+                category,
+                serde_url_params::to_string(query)?
+            ),
+            &(),
+        );
+    }
+
     pub fn get_recommend(&self, user_id: &str, query: &WriteBackQuery) -> Result<Vec<String>> {
         return self.request::<(), Vec<String>>(
             Method::GET,
             format!(
                 "{}api/recommend/{}?{}",
+                self.entry_point,
+                user_id,
+                serde_url_params::to_string(query)?
+            ),
+            &(),
+        );
+    }
+
+    pub fn get_user_neighbors(&self, user_id: &str, query: &OffsetQuery) -> Result<Vec<Score>> {
+        return self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!(
+                "{}api/user/{}/neighbors?{}",
                 self.entry_point,
                 user_id,
                 serde_url_params::to_string(query)?
@@ -531,26 +563,33 @@ mod tests {
     fn test_neighbors() -> Result<()> {
         let redis = redis::Client::open("redis://127.0.0.1/")?;
         let mut connection = redis.get_connection()?;
+        connection.zadd_multiple("user_neighbors/1000", &[(1, 1000), (2, 2000), (3, 3000)])?;
         connection.zadd_multiple("item_neighbors/1000", &[(1, 1000), (2, 2000), (3, 3000)])?;
+        let scores = vec![
+            Score {
+                id: "3000".into(),
+                score: 3.0,
+            },
+            Score {
+                id: "2000".into(),
+                score: 2.0,
+            },
+            Score {
+                id: "1000".into(),
+                score: 1.0,
+            },
+        ];
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let scores = client.get_item_neighbors("1000", &OffsetQuery::new())?;
-        assert_eq!(
-            scores,
-            vec![
-                Score {
-                    id: "3000".into(),
-                    score: 3.0
-                },
-                Score {
-                    id: "2000".into(),
-                    score: 2.0
-                },
-                Score {
-                    id: "1000".into(),
-                    score: 1.0
-                },
-            ]
-        );
+        // Get item neighbors.
+        let returned_scores = client.get_item_neighbors("1000", &OffsetQuery::new())?;
+        assert_eq!(returned_scores, scores);
+        // Get item neighbors by category.
+        let returned_scores =
+            client.get_item_neighbors_by_category("1000", "", &OffsetQuery::new())?;
+        assert_eq!(returned_scores, scores);
+        // Get user neighbors.
+        let returned_scores = client.get_user_neighbors("1000", &OffsetQuery::new())?;
+        assert_eq!(returned_scores, scores);
         Ok(())
     }
 
