@@ -2,7 +2,7 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    query::{CursorQuery, OffsetQuery, WriteBackQuery},
+    query::{CursorQuery, OffsetQuery, UserIdQuery, WriteBackQuery},
     Error, Feedback, Feedbacks, Health, Item, Items, Method, Result, RowAffected, Score,
     StatusCode, User, Users,
 };
@@ -328,6 +328,64 @@ impl Gorse {
         );
     }
 
+    pub fn get_latest(&self, query: &UserIdQuery) -> Result<Vec<Score>> {
+        return self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!(
+                "{}api/latest?{}",
+                self.entry_point,
+                serde_url_params::to_string(query)?
+            ),
+            &(),
+        );
+    }
+
+    pub fn get_latest_by_category(
+        &self,
+        category: &str,
+        query: &UserIdQuery,
+    ) -> Result<Vec<Score>> {
+        return self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!(
+                "{}api/latest/{}?{}",
+                self.entry_point,
+                category,
+                serde_url_params::to_string(query)?
+            ),
+            &(),
+        );
+    }
+
+    pub fn get_popular(&self, query: &UserIdQuery) -> Result<Vec<Score>> {
+        return self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!(
+                "{}api/popular?{}",
+                self.entry_point,
+                serde_url_params::to_string(query)?
+            ),
+            &(),
+        );
+    }
+
+    pub fn get_popular_by_category(
+        &self,
+        category: &str,
+        query: &UserIdQuery,
+    ) -> Result<Vec<Score>> {
+        return self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!(
+                "{}api/popular/{}?{}",
+                self.entry_point,
+                category,
+                serde_url_params::to_string(query)?
+            ),
+            &(),
+        );
+    }
+
     pub fn get_recommend(&self, user_id: &str, query: &WriteBackQuery) -> Result<Vec<String>> {
         return self.request::<(), Vec<String>>(
             Method::GET,
@@ -596,6 +654,70 @@ mod tests {
         assert_eq!(returned_scores, scores);
         // Get user neighbors.
         let returned_scores = client.get_user_neighbors("1000", &OffsetQuery::new())?;
+        assert_eq!(returned_scores, scores);
+        Ok(())
+    }
+
+    #[test]
+    fn test_latest() -> Result<()> {
+        let redis = redis::Client::open("redis://127.0.0.1/")?;
+        let mut connection = redis.get_connection()?;
+        connection.del("latest_items")?;
+        connection.del("latest_items/test")?;
+        connection.zadd_multiple("latest_items", &[(1, 1000), (2, 2000), (3, 3000)])?;
+        connection.zadd_multiple("latest_items/test", &[(1, 1000), (2, 2000), (3, 3000)])?;
+        let scores = vec![
+            Score {
+                id: "3000".into(),
+                score: 3.0,
+            },
+            Score {
+                id: "2000".into(),
+                score: 2.0,
+            },
+            Score {
+                id: "1000".into(),
+                score: 1.0,
+            },
+        ];
+        let client = Gorse::new(ENTRY_POINT, API_KEY);
+        // Get latest.
+        let returned_scores = client.get_latest(&UserIdQuery::new())?;
+        assert_eq!(returned_scores, scores);
+        // Get latest by category.
+        let returned_scores = client.get_latest_by_category("test", &UserIdQuery::new())?;
+        assert_eq!(returned_scores, scores);
+        Ok(())
+    }
+
+    #[test]
+    fn test_popular() -> Result<()> {
+        let redis = redis::Client::open("redis://127.0.0.1/")?;
+        let mut connection = redis.get_connection()?;
+        connection.del("popular_items")?;
+        connection.del("popular_items/test")?;
+        connection.zadd_multiple("popular_items", &[(1, 1000), (2, 2000), (3, 3000)])?;
+        connection.zadd_multiple("popular_items/test", &[(1, 1000), (2, 2000), (3, 3000)])?;
+        let scores = vec![
+            Score {
+                id: "3000".into(),
+                score: 3.0,
+            },
+            Score {
+                id: "2000".into(),
+                score: 2.0,
+            },
+            Score {
+                id: "1000".into(),
+                score: 1.0,
+            },
+        ];
+        let client = Gorse::new(ENTRY_POINT, API_KEY);
+        // Get popular.
+        let returned_scores = client.get_popular(&UserIdQuery::new())?;
+        assert_eq!(returned_scores, scores);
+        // Get popular by category.
+        let returned_scores = client.get_popular_by_category("test", &UserIdQuery::new())?;
         assert_eq!(returned_scores, scores);
         Ok(())
     }
