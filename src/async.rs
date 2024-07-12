@@ -473,6 +473,27 @@ impl Gorse {
             .await;
     }
 
+    pub async fn get_recommend_by_category(
+        &self,
+        user_id: &str,
+        category: &str,
+        query: &WriteBackQuery,
+    ) -> Result<Vec<String>> {
+        return self
+            .request::<(), Vec<String>>(
+                Method::GET,
+                format!(
+                    "{}api/recommend/{}/{}?{}",
+                    self.entry_point,
+                    user_id,
+                    category,
+                    serde_url_params::to_string(query)?
+                ),
+                &(),
+            )
+            .await;
+    }
+
     pub async fn get_user_neighbors(
         &self,
         user_id: &str,
@@ -819,13 +840,20 @@ mod tests {
     async fn test_recommend() -> Result<()> {
         let redis = redis::Client::open("redis://127.0.0.1/")?;
         let mut connection = redis.get_connection()?;
+        connection.del("offline_recommend/10")?;
+        connection.del("offline_recommend/10/test")?;
         connection.zadd_multiple("offline_recommend/10", &[(1, 10), (2, 20), (3, 30)])?;
+        connection.zadd_multiple("offline_recommend/10/test", &[(1, 10), (2, 20), (3, 30)])?;
+        let items = vec!["30".to_string(), "20".to_string(), "10".to_string()];
         let client = Gorse::new(ENTRY_POINT, API_KEY);
-        let items = client.get_recommend("10", &WriteBackQuery::new()).await?;
-        assert_eq!(
-            items,
-            vec!["30".to_string(), "20".to_string(), "10".to_string()]
-        );
+        // Get recommendation.
+        let returned_items = client.get_recommend("10", &WriteBackQuery::new()).await?;
+        assert_eq!(returned_items, items);
+        // Get recommendation by category.
+        let returned_items = client
+            .get_recommend_by_category("10", "test", &WriteBackQuery::new())
+            .await?;
+        assert_eq!(returned_items, items);
         Ok(())
     }
 
