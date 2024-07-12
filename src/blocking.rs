@@ -513,6 +513,7 @@ impl Gorse {
 #[cfg(test)]
 mod tests {
     use redis::Commands;
+    use serial_test::serial;
 
     use super::*;
 
@@ -520,6 +521,7 @@ mod tests {
     const API_KEY: &str = "zhenghaoz";
 
     #[test]
+    #[serial]
     fn test_users() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let mut user = User::new("100", vec!["a", "b", "c"]);
@@ -557,6 +559,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_items() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let category = "test".to_string();
@@ -618,6 +621,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_feedback() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let all_feedback = vec![
@@ -675,6 +679,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_neighbors() -> Result<()> {
         let redis = redis::Client::open("redis://127.0.0.1/")?;
         let mut connection = redis.get_connection()?;
@@ -716,6 +721,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_latest() -> Result<()> {
         let redis = redis::Client::open("redis://127.0.0.1/")?;
         let mut connection = redis.get_connection()?;
@@ -748,6 +754,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_popular() -> Result<()> {
         let redis = redis::Client::open("redis://127.0.0.1/")?;
         let mut connection = redis.get_connection()?;
@@ -780,6 +787,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_recommend() -> Result<()> {
         let redis = redis::Client::open("redis://127.0.0.1/")?;
         let mut connection = redis.get_connection()?;
@@ -803,6 +811,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_recommend_session() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let items = vec![Item::new(
@@ -837,6 +846,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_health() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let health = Health {

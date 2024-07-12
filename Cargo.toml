@@ -19,4 +19,5 @@ serde_url_params = "0.2"
 [dev-dependencies]
 chrono = "0.4.23"
 redis = "0.25.1"
+serial_test = "3.1.1"
 tokio = { version = "1.22.0", features = ["macros"] }
