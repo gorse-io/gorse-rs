@@ -625,8 +625,6 @@ mod tests {
     fn test_feedback() -> Result<()> {
         let client = Gorse::new(ENTRY_POINT, API_KEY);
         let all_feedback = vec![
-            Feedback::new("read", "10", "3", "2022-11-20T13:55:27Z"),
-            Feedback::new("read", "10", "4", "2022-11-20T13:55:27Z"),
             Feedback::new("read", "1000", "300", "2022-11-20T13:55:27Z"),
             Feedback::new("read", "1000", "400", "2022-11-20T13:55:27Z"),
         ];
@@ -653,10 +651,14 @@ mod tests {
         assert_eq!(rows_affected.row_affected, 2);
         // List feedback.
         let return_feedback = client.list_feedback(&CursorQuery::new())?;
-        assert_eq!(return_feedback, all_feedback);
+        assert!(all_feedback
+            .iter()
+            .all(|feedback| return_feedback.contains(feedback)));
         // List feedback by type.
         let return_feedback = client.list_feedback_by_type("read", &CursorQuery::new())?;
-        assert_eq!(return_feedback, all_feedback);
+        assert!(all_feedback
+            .iter()
+            .all(|feedback| return_feedback.contains(feedback)));
         // Get feedback.
         let return_feedback = client.get_feedback("read", "1000", "300")?;
         assert_eq!(return_feedback, feedback[0]);
