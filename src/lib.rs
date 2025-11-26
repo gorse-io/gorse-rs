@@ -99,98 +99,88 @@ impl Gorse {
     }
 
     pub async fn insert_user(&self, user: &User) -> Result<RowAffected> {
-        return self
-            .request(Method::POST, format!("{}api/user", self.entry_point), user)
-            .await;
+        self.request(Method::POST, format!("{}api/user", self.entry_point), user)
+            .await
     }
 
     pub async fn get_user(&self, user_id: &str) -> Result<User> {
-        return self
-            .request::<(), User>(
-                Method::GET,
-                format!("{}api/user/{}", self.entry_point, user_id),
-                &(),
-            )
-            .await;
+        self.request::<(), User>(
+            Method::GET,
+            format!("{}api/user/{}", self.entry_point, user_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn delete_user(&self, user_id: &str) -> Result<RowAffected> {
-        return self
-            .request::<(), RowAffected>(
-                Method::DELETE,
-                format!("{}api/user/{}", self.entry_point, user_id),
-                &(),
-            )
-            .await;
+        self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!("{}api/user/{}", self.entry_point, user_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn insert_item(&self, item: &Item) -> Result<RowAffected> {
-        return self
-            .request(Method::POST, format!("{}api/item", self.entry_point), item)
-            .await;
+        self.request(Method::POST, format!("{}api/item", self.entry_point), item)
+            .await
     }
 
     pub async fn get_item(&self, item_id: &str) -> Result<Item> {
-        return self
-            .request::<(), Item>(
-                Method::GET,
-                format!("{}api/item/{}", self.entry_point, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), Item>(
+            Method::GET,
+            format!("{}api/item/{}", self.entry_point, item_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn delete_item(&self, item_id: &str) -> Result<RowAffected> {
-        return self
-            .request::<(), RowAffected>(
-                Method::DELETE,
-                format!("{}api/item/{}", self.entry_point, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!("{}api/item/{}", self.entry_point, item_id),
+            &(),
+        )
+        .await
     }
 
-    pub async fn insert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
-        return self
-            .request(
-                Method::POST,
-                format!("{}api/feedback", self.entry_point),
-                feedback,
-            )
-            .await;
+    pub async fn insert_feedback(&self, feedback: &[Feedback]) -> Result<RowAffected> {
+        self.request(
+            Method::POST,
+            format!("{}api/feedback", self.entry_point),
+            feedback,
+        )
+        .await
     }
 
     pub async fn delete_feedback(&self, user_id: &str, item_id: &str) -> Result<RowAffected> {
-        return self
-            .request::<(), RowAffected>(
-                Method::DELETE,
-                format!("{}api/feedback/{}/{}", self.entry_point, user_id, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!("{}api/feedback/{}/{}", self.entry_point, user_id, item_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
-        return self
-            .request::<(), Vec<Feedback>>(
-                Method::GET,
-                format!(
-                    "{}api/user/{}/feedback/{}",
-                    self.entry_point, user_id, feedback_type
-                ),
-                &(),
-            )
-            .await;
+        self.request::<(), Vec<Feedback>>(
+            Method::GET,
+            format!(
+                "{}api/user/{}/feedback/{}",
+                self.entry_point, user_id, feedback_type
+            ),
+            &(),
+        )
+        .await
     }
 
     pub async fn get_item_neighbors(&self, item_id: &str) -> Result<Vec<Score>> {
-        return self
-            .request::<(), Vec<Score>>(
-                Method::GET,
-                format!("{}api/item/{}/neighbors", self.entry_point, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!("{}api/item/{}/neighbors", self.entry_point, item_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn get_recommend(
@@ -202,10 +192,10 @@ impl Gorse {
         if options.n > 0 {
             url = format!("{}?n={}", url, options.n);
         }
-        return self.request::<(), Vec<String>>(Method::GET, url, &()).await;
+        self.request::<(), Vec<String>>(Method::GET, url, &()).await
     }
 
-    async fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(
+    async fn request<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
         &self,
         method: Method,
         url: String,
@@ -455,7 +445,7 @@ pub mod blocking {
             )
         }
 
-        pub fn insert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
+        pub fn insert_feedback(&self, feedback: &[Feedback]) -> Result<RowAffected> {
             self.request(
                 Method::POST,
                 format!("{}api/feedback", self.entry_point),
@@ -502,7 +492,7 @@ pub mod blocking {
             self.request::<(), Vec<String>>(Method::GET, url, &())
         }
 
-        fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(
+        fn request<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
             &self,
             method: Method,
             url: String,
