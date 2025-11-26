@@ -2,11 +2,9 @@ use reqwest::Client;
 use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::cmp::PartialEq;
-use std::fmt::{Display, Formatter};
-use std::{error, fmt};
+use thiserror::Error;
 
-type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct User {
@@ -62,22 +60,17 @@ pub struct Score {
     pub score: f64,
 }
 
-#[derive(Debug, PartialEq)]
-struct Error {
-    pub status_code: StatusCode,
-    pub message: String,
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.status_code.to_string(), self.message)
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        &self.message
-    }
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("API error: {status_code}: {message}")]
+    Api {
+        status_code: StatusCode,
+        message: String,
+    },
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
 }
 
 #[derive(Default)]
@@ -94,73 +87,70 @@ pub struct Gorse {
 
 impl Gorse {
     pub fn new(entry_point: impl Into<String>, api_key: impl Into<String>) -> Self {
+        let mut entry_point = entry_point.into();
+        if !entry_point.ends_with('/') {
+            entry_point.push('/');
+        }
         Self {
-            entry_point: entry_point.into(),
+            entry_point,
             api_key: api_key.into(),
             client: Client::new(),
         }
     }
 
     pub async fn insert_user(&self, user: &User) -> Result<RowAffected> {
-        return self
-            .request(Method::POST, format!("{}api/user", self.entry_point), user)
-            .await;
+        self.request(Method::POST, format!("{}api/user", self.entry_point), user)
+            .await
     }
 
     pub async fn get_user(&self, user_id: &str) -> Result<User> {
-        return self
-            .request::<(), User>(
-                Method::GET,
-                format!("{}api/user/{}", self.entry_point, user_id),
-                &(),
-            )
-            .await;
+        self.request::<(), User>(
+            Method::GET,
+            format!("{}api/user/{}", self.entry_point, user_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn delete_user(&self, user_id: &str) -> Result<RowAffected> {
-        return self
-            .request::<(), RowAffected>(
-                Method::DELETE,
-                format!("{}api/user/{}", self.entry_point, user_id),
-                &(),
-            )
-            .await;
+        self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!("{}api/user/{}", self.entry_point, user_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn insert_item(&self, item: &Item) -> Result<RowAffected> {
-        return self
-            .request(Method::POST, format!("{}api/item", self.entry_point), item)
-            .await;
+        self.request(Method::POST, format!("{}api/item", self.entry_point), item)
+            .await
     }
 
     pub async fn get_item(&self, item_id: &str) -> Result<Item> {
-        return self
-            .request::<(), Item>(
-                Method::GET,
-                format!("{}api/item/{}", self.entry_point, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), Item>(
+            Method::GET,
+            format!("{}api/item/{}", self.entry_point, item_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn delete_item(&self, item_id: &str) -> Result<RowAffected> {
-        return self
-            .request::<(), RowAffected>(
-                Method::DELETE,
-                format!("{}api/item/{}", self.entry_point, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!("{}api/item/{}", self.entry_point, item_id),
+            &(),
+        )
+        .await
     }
 
-    pub async fn insert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
-        return self
-            .request(
-                Method::POST,
-                format!("{}api/feedback", self.entry_point),
-                feedback,
-            )
-            .await;
+    pub async fn insert_feedback(&self, feedback: &[Feedback]) -> Result<RowAffected> {
+        self.request(
+            Method::POST,
+            format!("{}api/feedback", self.entry_point),
+            feedback,
+        )
+        .await
     }
 
     pub async fn upsert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
@@ -173,36 +163,33 @@ impl Gorse {
     }
 
     pub async fn delete_feedback(&self, user_id: &str, item_id: &str) -> Result<RowAffected> {
-        return self
-            .request::<(), RowAffected>(
-                Method::DELETE,
-                format!("{}api/feedback/{}/{}", self.entry_point, user_id, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), RowAffected>(
+            Method::DELETE,
+            format!("{}api/feedback/{}/{}", self.entry_point, user_id, item_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
-        return self
-            .request::<(), Vec<Feedback>>(
-                Method::GET,
-                format!(
-                    "{}api/user/{}/feedback/{}",
-                    self.entry_point, user_id, feedback_type
-                ),
-                &(),
-            )
-            .await;
+        self.request::<(), Vec<Feedback>>(
+            Method::GET,
+            format!(
+                "{}api/user/{}/feedback/{}",
+                self.entry_point, user_id, feedback_type
+            ),
+            &(),
+        )
+        .await
     }
 
     pub async fn get_item_neighbors(&self, item_id: &str) -> Result<Vec<Score>> {
-        return self
-            .request::<(), Vec<Score>>(
-                Method::GET,
-                format!("{}api/item/{}/neighbors", self.entry_point, item_id),
-                &(),
-            )
-            .await;
+        self.request::<(), Vec<Score>>(
+            Method::GET,
+            format!("{}api/item/{}/neighbors", self.entry_point, item_id),
+            &(),
+        )
+        .await
     }
 
     pub async fn get_recommend(
@@ -214,10 +201,10 @@ impl Gorse {
         if options.n > 0 {
             url = format!("{}?n={}", url, options.n);
         }
-        return self.request::<(), Vec<String>>(Method::GET, url, &()).await;
+        self.request::<(), Vec<String>>(Method::GET, url, &()).await
     }
 
-    async fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(
+    async fn request<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
         &self,
         method: Method,
         url: String,
@@ -231,15 +218,15 @@ impl Gorse {
             .json(body)
             .send()
             .await?;
-        return if response.status() == StatusCode::OK {
+        if response.status() == StatusCode::OK {
             let r: RetType = serde_json::from_str(response.text().await?.as_str())?;
             Ok(r)
         } else {
-            Err(Box::new(Error {
+            Err(Error::Api {
                 status_code: response.status(),
                 message: response.text().await?,
-            }))
-        };
+            })
+        }
     }
 }
 
@@ -273,10 +260,10 @@ mod tests {
         assert_eq!(r.row_affected, 1);
         match client.get_user("2000").await {
             Ok(_) => panic!("Expected error"),
-            Err(e) => {
-                let err = e.downcast_ref::<Error>().unwrap();
-                assert_eq!(err.status_code, StatusCode::NOT_FOUND);
+            Err(Error::Api { status_code, .. }) => {
+                assert_eq!(status_code, StatusCode::NOT_FOUND);
             }
+            Err(e) => panic!("Expected API error, got {:?}", e),
         }
         Ok(())
     }
@@ -304,10 +291,10 @@ mod tests {
         assert_eq!(r.row_affected, 1);
         match client.get_item("2000").await {
             Ok(_) => panic!("Expected error"),
-            Err(e) => {
-                let err = e.downcast_ref::<Error>().unwrap();
-                assert_eq!(err.status_code, StatusCode::NOT_FOUND);
+            Err(Error::Api { status_code, .. }) => {
+                assert_eq!(status_code, StatusCode::NOT_FOUND);
             }
+            Err(e) => panic!("Expected API error, got {:?}", e),
         }
         Ok(())
     }
@@ -416,59 +403,63 @@ pub mod blocking {
 
     impl Gorse {
         pub fn new(entry_point: impl Into<String>, api_key: impl Into<String>) -> Self {
+            let mut entry_point = entry_point.into();
+            if !entry_point.ends_with('/') {
+                entry_point.push('/');
+            }
             Self {
-                entry_point: entry_point.into(),
+                entry_point,
                 api_key: api_key.into(),
                 client: Client::new(),
             }
         }
 
         pub fn insert_user(&self, user: &User) -> Result<RowAffected> {
-            return self.request(Method::POST, format!("{}api/user", self.entry_point), user);
+            self.request(Method::POST, format!("{}api/user", self.entry_point), user)
         }
 
         pub fn get_user(&self, user_id: &str) -> Result<User> {
-            return self.request::<(), User>(
+            self.request::<(), User>(
                 Method::GET,
                 format!("{}api/user/{}", self.entry_point, user_id),
                 &(),
-            );
+            )
         }
 
         pub fn delete_user(&self, user_id: &str) -> Result<RowAffected> {
-            return self.request::<(), RowAffected>(
+            self.request::<(), RowAffected>(
                 Method::DELETE,
                 format!("{}api/user/{}", self.entry_point, user_id),
                 &(),
-            );
+            )
         }
 
         pub fn insert_item(&self, item: &Item) -> Result<RowAffected> {
-            return self.request(Method::POST, format!("{}api/item", self.entry_point), item);
+            self.request(Method::POST, format!("{}api/item", self.entry_point), item)
         }
 
         pub fn get_item(&self, item_id: &str) -> Result<Item> {
-            return self.request::<(), Item>(
+            self.request::<(), Item>(
                 Method::GET,
                 format!("{}api/item/{}", self.entry_point, item_id),
                 &(),
-            );
+            )
         }
 
         pub fn delete_item(&self, item_id: &str) -> Result<RowAffected> {
-            return self.request::<(), RowAffected>(
+            self.request::<(), RowAffected>(
                 Method::DELETE,
                 format!("{}api/item/{}", self.entry_point, item_id),
                 &(),
-            );
+            )
         }
 
-        pub fn insert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
-            return self.request(
+        pub fn insert_feedback(&self, feedback: &[Feedback]) -> Result<RowAffected> {
+            self.request(
                 Method::POST,
                 format!("{}api/feedback", self.entry_point),
                 feedback,
-            );
+            )
         }
 
         pub fn upsert_feedback(&self, feedback: &Vec<Feedback>) -> Result<RowAffected> {
@@ -480,30 +471,30 @@ pub mod blocking {
         }
 
         pub fn delete_feedback(&self, user_id: &str, item_id: &str) -> Result<RowAffected> {
-            return self.request::<(), RowAffected>(
+            self.request::<(), RowAffected>(
                 Method::DELETE,
                 format!("{}api/feedback/{}/{}", self.entry_point, user_id, item_id),
                 &(),
-            );
+            )
         }
 
         pub fn list_feedback(&self, user_id: &str, feedback_type: &str) -> Result<Vec<Feedback>> {
-            return self.request::<(), Vec<Feedback>>(
+            self.request::<(), Vec<Feedback>>(
                 Method::GET,
                 format!(
                     "{}api/user/{}/feedback/{}",
                     self.entry_point, user_id, feedback_type
                 ),
                 &(),
-            );
+            )
         }
 
         pub fn get_item_neighbors(&self, item_id: &str) -> Result<Vec<Score>> {
-            return self.request::<(), Vec<Score>>(
+            self.request::<(), Vec<Score>>(
                 Method::GET,
                 format!("{}api/item/{}/neighbors", self.entry_point, item_id),
                 &(),
-            );
+            )
         }
 
         pub fn get_recommend(
@@ -515,10 +506,10 @@ pub mod blocking {
             if options.n > 0 {
                 url = format!("{}?n={}", url, options.n);
             }
-            return self.request::<(), Vec<String>>(Method::GET, url, &());
+            self.request::<(), Vec<String>>(Method::GET, url, &())
         }
 
-        fn request<BodyType: Serialize, RetType: for<'a> Deserialize<'a>>(
+        fn request<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
             &self,
             method: Method,
             url: String,
@@ -531,15 +522,15 @@ pub mod blocking {
                 .header("Content-Type", "application/json")
                 .json(body)
                 .send()?;
-            return if response.status() == StatusCode::OK {
+            if response.status() == StatusCode::OK {
                 let r: RetType = serde_json::from_str(response.text()?.as_str())?;
                 Ok(r)
             } else {
-                Err(Box::new(Error {
+                Err(Error::Api {
                     status_code: response.status(),
                     message: response.text()?,
-                }))
-            };
+                })
+            }
         }
     }
 
@@ -573,10 +564,10 @@ pub mod blocking {
             assert_eq!(r.row_affected, 1);
             match client.get_user("2000") {
                 Ok(_) => panic!("Expected error"),
-                Err(e) => {
-                    let err = e.downcast_ref::<Error>().unwrap();
-                    assert_eq!(err.status_code, StatusCode::NOT_FOUND);
+                Err(Error::Api { status_code, .. }) => {
+                    assert_eq!(status_code, StatusCode::NOT_FOUND);
                 }
+                Err(e) => panic!("Expected API error, got {:?}", e),
             }
             Ok(())
         }
@@ -604,10 +595,10 @@ pub mod blocking {
             assert_eq!(r.row_affected, 1);
             match client.get_item("2000") {
                 Ok(_) => panic!("Expected error"),
-                Err(e) => {
-                    let err = e.downcast_ref::<Error>().unwrap();
-                    assert_eq!(err.status_code, StatusCode::NOT_FOUND);
+                Err(Error::Api { status_code, .. }) => {
+                    assert_eq!(status_code, StatusCode::NOT_FOUND);
                 }
+                Err(e) => panic!("Expected API error, got {:?}", e),
             }
             Ok(())
         }
