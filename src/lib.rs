@@ -512,12 +512,6 @@ pub mod blocking {
                 &(),
             )
         }
-
-        /// Get recommendation for a user.
-            let mut url = format!("{}api/recommend/{}", self.entry_point, user_id);
-            if options.n > 0 {
-                url = format!("{}?n={}", url, options.n);
-        /// Get recommendation with scores for a user.
         /// Get recommendation with scores for a user.
     /// Uses X-API-Version: 2 header to return scores.
         pub fn get_recommend(
