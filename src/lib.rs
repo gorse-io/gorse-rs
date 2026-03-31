@@ -393,10 +393,10 @@ mod tests {
         let items = client
             .get_recommend("3000", RecommendOptions { n: 3 })
             .await?;
-        assert_eq!(
-            items,
-            vec!["315".to_string(), "1432".to_string(), "918".to_string()]
-        );
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0].id, "315");
+        assert_eq!(items[1].id, "1432");
+        assert_eq!(items[2].id, "918");
         Ok(())
     }
 }
@@ -707,10 +707,10 @@ pub mod blocking {
                 comment: "".into(),
             })?;
             let items = client.get_recommend("3000", RecommendOptions { n: 3 })?;
-            assert_eq!(
-                items,
-                vec!["315".to_string(), "1432".to_string(), "918".to_string()]
-            );
+            assert_eq!(items.len(), 3);
+            assert_eq!(items[0].id, "315");
+            assert_eq!(items[1].id, "1432");
+            assert_eq!(items[2].id, "918");
             Ok(())
         }
     }
