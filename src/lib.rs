@@ -192,6 +192,7 @@ impl Gorse {
         .await
     }
 
+    /// Get recommendation for a user.
     pub async fn get_recommend(
         &self,
         user_id: &str,
@@ -204,20 +205,48 @@ impl Gorse {
         self.request::<(), Vec<String>>(Method::GET, url, &()).await
     }
 
+    /// Get recommendation with scores for a user.
+    /// Uses X-API-Version: 2 header to return scores.
+    pub async fn get_recommend_with_scores(
+        &self,
+        user_id: &str,
+        options: RecommendOptions,
+    ) -> Result<Vec<Score>> {
+        let mut url = format!("{}api/recommend/{}", self.entry_point, user_id);
+        if options.n > 0 {
+            url = format!("{}?n={}", url, options.n);
+        }
+        self.request_with_headers::<(), Vec<Score>>(Method::GET, url, &(), Some("2")).await
+    }
+
     async fn request<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
         &self,
         method: Method,
         url: String,
         body: &BodyType,
     ) -> Result<RetType> {
-        let response = self
+        self.request_with_headers(method, url, body, None).await
+    }
+
+    async fn request_with_headers<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
+        &self,
+        method: Method,
+        url: String,
+        body: &BodyType,
+        api_version: Option<&str>,
+    ) -> Result<RetType> {
+        let mut request = self
             .client
             .request(method, url)
             .header("X-API-Key", self.api_key.as_str())
             .header("Content-Type", "application/json")
-            .json(body)
-            .send()
-            .await?;
+            .json(body);
+        
+        if let Some(version) = api_version {
+            request = request.header("X-API-Version", version);
+        }
+        
+        let response = request.send().await?;
         if response.status() == StatusCode::OK {
             let r: RetType = serde_json::from_str(response.text().await?.as_str())?;
             Ok(r)
@@ -497,6 +526,7 @@ pub mod blocking {
             )
         }
 
+        /// Get recommendation for a user.
         pub fn get_recommend(
             &self,
             user_id: &str,
@@ -509,19 +539,48 @@ pub mod blocking {
             self.request::<(), Vec<String>>(Method::GET, url, &())
         }
 
+        /// Get recommendation with scores for a user.
+        /// Uses X-API-Version: 2 header to return scores.
+        pub fn get_recommend_with_scores(
+            &self,
+            user_id: &str,
+            options: RecommendOptions,
+        ) -> Result<Vec<Score>> {
+            let mut url = format!("{}api/recommend/{}", self.entry_point, user_id);
+            if options.n > 0 {
+                url = format!("{}?n={}", url, options.n);
+            }
+            self.request_with_headers::<(), Vec<Score>>(Method::GET, url, &(), Some("2"))
+        }
+
         fn request<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
             &self,
             method: Method,
             url: String,
             body: &BodyType,
         ) -> Result<RetType> {
-            let response = self
+            self.request_with_headers(method, url, body, None)
+        }
+
+        fn request_with_headers<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
+            &self,
+            method: Method,
+            url: String,
+            body: &BodyType,
+            api_version: Option<&str>,
+        ) -> Result<RetType> {
+            let mut request = self
                 .client
                 .request(method, url)
                 .header("X-API-Key", self.api_key.as_str())
                 .header("Content-Type", "application/json")
-                .json(body)
-                .send()?;
+                .json(body);
+            
+            if let Some(version) = api_version {
+                request = request.header("X-API-Version", version);
+            }
+            
+            let response = request.send()?;
             if response.status() == StatusCode::OK {
                 let r: RetType = serde_json::from_str(response.text()?.as_str())?;
                 Ok(r)
