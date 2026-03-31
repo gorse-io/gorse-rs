@@ -193,11 +193,6 @@ impl Gorse {
     }
 
     /// Get recommendation for a user.
-    pub async fn get_recommend(
-        &self,
-        user_id: &str,
-        options: RecommendOptions,
-    ) -> Result<Vec<String>> {
         let mut url = format!("{}api/recommend/{}", self.entry_point, user_id);
         if options.n > 0 {
             url = format!("{}?n={}", url, options.n);
@@ -207,7 +202,7 @@ impl Gorse {
 
     /// Get recommendation with scores for a user.
     /// Uses X-API-Version: 2 header to return scores.
-    pub async fn get_recommend_with_scores(
+    pub async fn get_recommend(
         &self,
         user_id: &str,
         options: RecommendOptions,
@@ -527,11 +522,6 @@ pub mod blocking {
         }
 
         /// Get recommendation for a user.
-        pub fn get_recommend(
-            &self,
-            user_id: &str,
-            options: RecommendOptions,
-        ) -> Result<Vec<String>> {
             let mut url = format!("{}api/recommend/{}", self.entry_point, user_id);
             if options.n > 0 {
                 url = format!("{}?n={}", url, options.n);
@@ -541,7 +531,7 @@ pub mod blocking {
 
         /// Get recommendation with scores for a user.
         /// Uses X-API-Version: 2 header to return scores.
-        pub fn get_recommend_with_scores(
+        pub fn get_recommend(
             &self,
             user_id: &str,
             options: RecommendOptions,
