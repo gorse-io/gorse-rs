@@ -401,6 +401,7 @@ mod tests {
     }
 }
 
+#[cfg(feature = "blocking")]
 pub mod blocking {
     use reqwest::blocking::Client;
     use serde::{Deserialize, Serialize};
