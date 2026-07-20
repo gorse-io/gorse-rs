@@ -73,7 +73,15 @@ let feedback = vec![
 client.insert_feedback(&feedback).await?;
 
 // Get recommendation
-let items = client.get_recommend("bob", RecommendOptions { n: 10 }).await?;
+let items = client
+    .get_recommend(
+        "bob",
+        RecommendOptions {
+            n: 10,
+            ..Default::default()
+        },
+    )
+    .await?;
 ```
 
 - Use blocking client:
@@ -136,5 +144,11 @@ let feedback = vec![
 client.insert_feedback(&feedback)?;
 
 // Get recommendation
-let items = client.get_recommend("bob", RecommendOptions { n: 10 })?;
+let items = client.get_recommend(
+    "bob",
+    RecommendOptions {
+        n: 10,
+        ..Default::default()
+    },
+)?;
 ```

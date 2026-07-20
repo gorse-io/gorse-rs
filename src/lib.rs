@@ -86,6 +86,39 @@ pub enum Error {
 #[derive(Default)]
 pub struct RecommendOptions {
     pub n: usize,
+    pub categories: Vec<String>,
+    pub write_back_type: Option<String>,
+    pub write_back_delay: Option<String>,
+    pub offset: usize,
+}
+
+fn recommend_url(entry_point: &str, user_id: &str, options: &RecommendOptions) -> Result<String> {
+    let mut url = reqwest::Url::parse(&format!("{}api/recommend/", entry_point))
+        .map_err(|error| Error::Url(error.to_string()))?;
+    url.path_segments_mut()
+        .map_err(|_| Error::Url("recommend endpoint cannot be a base URL".into()))?
+        .pop_if_empty()
+        .push(user_id);
+    let mut query = url.query_pairs_mut();
+    for category in &options.categories {
+        if !category.is_empty() {
+            query.append_pair("category", category);
+        }
+    }
+    if let Some(write_back_type) = &options.write_back_type {
+        query.append_pair("write-back-type", write_back_type);
+    }
+    if let Some(write_back_delay) = &options.write_back_delay {
+        query.append_pair("write-back-delay", write_back_delay);
+    }
+    if options.n > 0 {
+        query.append_pair("n", &options.n.to_string());
+    }
+    if options.offset > 0 {
+        query.append_pair("offset", &options.offset.to_string());
+    }
+    drop(query);
+    Ok(url.into())
 }
 
 #[derive(Debug, Clone)]
@@ -219,11 +252,9 @@ impl Gorse {
         user_id: &str,
         options: RecommendOptions,
     ) -> Result<Vec<Score>> {
-        let mut url = format!("{}api/recommend/{}", self.entry_point, user_id);
-        if options.n > 0 {
-            url = format!("{}?n={}", url, options.n);
-        }
-        self.request_with_headers::<(), Vec<Score>>(Method::GET, url, &(), Some("2")).await
+        let url = recommend_url(&self.entry_point, user_id, &options)?;
+        self.request_with_headers::<(), Vec<Score>>(Method::GET, url, &(), Some("2"))
+            .await
     }
 
     async fn request<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
@@ -235,7 +266,10 @@ impl Gorse {
         self.request_with_headers(method, url, body, None).await
     }
 
-    async fn request_with_headers<BodyType: Serialize + ?Sized, RetType: for<'a> Deserialize<'a>>(
+    async fn request_with_headers<
+        BodyType: Serialize + ?Sized,
+        RetType: for<'a> Deserialize<'a>,
+    >(
         &self,
         method: Method,
         url: String,
@@ -248,11 +282,11 @@ impl Gorse {
             .header("X-API-Key", self.api_key.as_str())
             .header("Content-Type", "application/json")
             .json(body);
-        
+
         if let Some(version) = api_version {
             request = request.header("X-API-Version", version);
         }
-        
+
         let response = request.send().await?;
         if response.status() == StatusCode::OK {
             let r: RetType = serde_json::from_str(response.text().await?.as_str())?;
@@ -415,12 +449,52 @@ mod tests {
             })
             .await?;
         let items = client
-            .get_recommend("3000", RecommendOptions { n: 3 })
+            .get_recommend(
+                "3000",
+                RecommendOptions {
+                    n: 3,
+                    ..Default::default()
+                },
+            )
             .await?;
         assert_eq!(items.len(), 3);
         assert_eq!(items[0].id, "315");
         assert_eq!(items[1].id, "1432");
         assert_eq!(items[2].id, "918");
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_recommend_with_multiple_categories() -> Result<()> {
+        let client = Gorse::new(ENTRY_POINT, API_KEY);
+        client
+            .insert_user(&User {
+                user_id: "4000".into(),
+                labels: json!({}),
+                comment: "".into(),
+            })
+            .await?;
+        let items = client
+            .get_recommend(
+                "4000",
+                RecommendOptions {
+                    n: 3,
+                    categories: vec!["Drama".into(), "Comedy".into()],
+                    write_back_type: Some("recommend".into()),
+                    write_back_delay: Some("1h".into()),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        assert_eq!(items.len(), 3);
+        for score in items {
+            let item = client.get_item(&score.id).await?;
+            assert!(item
+                .categories
+                .iter()
+                .any(|category| category == "Drama" || category == "Comedy"));
+        }
         Ok(())
     }
 }
@@ -431,8 +505,8 @@ pub mod blocking {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        Error, Feedback, Item, ItemIterator, Method, RecommendOptions, Result, RowAffected, Score,
-        StatusCode, User,
+        recommend_url, Error, Feedback, Item, ItemIterator, Method, RecommendOptions, Result,
+        RowAffected, Score, StatusCode, User,
     };
 
     #[derive(Debug, Clone)]
@@ -547,16 +621,13 @@ pub mod blocking {
             )
         }
         /// Get recommendation with scores for a user.
-    /// Uses X-API-Version: 2 header to return scores.
+        /// Uses X-API-Version: 2 header to return scores.
         pub fn get_recommend(
             &self,
             user_id: &str,
             options: RecommendOptions,
         ) -> Result<Vec<Score>> {
-            let mut url = format!("{}api/recommend/{}", self.entry_point, user_id);
-            if options.n > 0 {
-                url = format!("{}?n={}", url, options.n);
-            }
+            let url = recommend_url(&self.entry_point, user_id, &options)?;
             self.request_with_headers::<(), Vec<Score>>(Method::GET, url, &(), Some("2"))
         }
 
@@ -582,11 +653,11 @@ pub mod blocking {
                 .header("X-API-Key", self.api_key.as_str())
                 .header("Content-Type", "application/json")
                 .json(body);
-            
+
             if let Some(version) = api_version {
                 request = request.header("X-API-Version", version);
             }
-            
+
             let response = request.send()?;
             if response.status() == StatusCode::OK {
                 let r: RetType = serde_json::from_str(response.text()?.as_str())?;
@@ -744,7 +815,13 @@ pub mod blocking {
                 labels: json!({}),
                 comment: "".into(),
             })?;
-            let items = client.get_recommend("3000", RecommendOptions { n: 3 })?;
+            let items = client.get_recommend(
+                "3000",
+                RecommendOptions {
+                    n: 3,
+                    ..Default::default()
+                },
+            )?;
             assert_eq!(items.len(), 3);
             assert_eq!(items[0].id, "315");
             assert_eq!(items[1].id, "1432");
