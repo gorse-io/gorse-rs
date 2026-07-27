@@ -22,5 +22,5 @@ thiserror = "2.0.17"
 
 [dev-dependencies]
 chrono = "0.4.23"
-serial_test = "3.2.0"
+serial_test = "4.0.1"
 tokio = { version = "1.22.0", features = ["macros"] }
